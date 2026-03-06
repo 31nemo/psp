@@ -856,6 +856,31 @@
       </div>
     </div>
 
+    <!-- 5. 리소스 검색 지원 -->
+    <div class="section" id="search-section" style="display:none; margin-top:20px;">
+      <div class="section-label">🔍 게임 리소스 찾기</div>
+      <div style="font-size:0.8rem; color:var(--muted); margin-bottom:12px;">
+        추출된 ID로 아이콘과 배경화면을 찾아보세요. 이미지를 슬롯에 드래그하여 적용할 수 있습니다.
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a id="lnk-psxdata" href="#" target="_blank" class="btn-secondary"
+          style="text-decoration:none; padding:8px 12px; font-size:0.8rem; border: 1px solid var(--accent2); color: var(--accent2);">🌐
+          PSX DataCenter (상세정보)</a>
+        <a href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" class="btn-secondary"
+          style="text-decoration:none; padding:8px 12px; font-size:0.8rem;">📀 PS1 2D BoxArt (고화질)</a>
+      </div>
+      <div id="psx-preview"
+        style="margin-top:15px; display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; border: 1px dashed var(--border);">
+        <img id="psx-thumb" src=""
+          style="width:80px; height:80px; object-fit:contain; border-radius:4px; background:#000; border:1px solid var(--border);"
+          onerror="this.parentElement.style.display='none'" onload="this.parentElement.style.display='flex'" />
+        <div style="font-size:0.75rem;">
+          <div id="psx-info-title" style="font-weight:bold; margin-bottom:4px; color:var(--accent2);"></div>
+          <div style="color:var(--muted)">위 검색 링크에서 더 많은 리소스를 얻을 수 있습니다.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 변환 버튼 및 상태 안내 -->
     <div id="ready-status" style="margin-top:20px; font-size:0.85rem; color:var(--muted); text-align:center;">
       대기 중: 게임 이미지와 Base PBP를 등록해주세요.
@@ -1102,7 +1127,43 @@
         console.error('AutoTitle Error:', err);
       } finally {
         isExtracting = false;
+        updateSearchLinks();
       }
+    }
+
+    function updateSearchLinks() {
+      const idInput = document.getElementById('game-id');
+      const id = idInput.value.trim().toUpperCase();
+      const title = document.getElementById('game-title').value.trim();
+      const sec = document.getElementById('search-section');
+
+      if (!id || id.length < 5) {
+        sec.style.display = 'none';
+        return;
+      }
+
+      sec.style.display = 'block';
+      const cleanId = id.replace(/-/g, '');
+
+      // PSX DataCenter Search URL
+      const searchUrl = `https://psxdatacenter.com/search.html?q=${id}`;
+      document.getElementById('lnk-psxdata').href = searchUrl;
+
+      // Guess Image Preview URL
+      const thumb = document.getElementById('psx-thumb');
+      let region = 'J';
+      if (id.startsWith('SLU') || id.startsWith('SCU')) region = 'U';
+      else if (id.startsWith('SLE') || id.startsWith('SCE')) region = 'P';
+
+      let initial = '0-9';
+      if (title) {
+        const firstChar = title[0].toUpperCase();
+        if (/[A-Z]/.test(firstChar)) initial = firstChar;
+      }
+
+      const imgUrl = `https://psxdatacenter.com/images/covers/${region}/${initial}/${cleanId}.jpg`;
+      thumb.src = imgUrl;
+      document.getElementById('psx-info-title').textContent = title || id;
     }
 
     // ── Base PBP 드롭존 (공통) ───────────────────────────
@@ -1229,6 +1290,8 @@
 
       const btn = document.getElementById('convert-btn');
       const statusEl = document.getElementById('ready-status');
+
+      updateSearchLinks();
 
       let msg = "";
       if (!gameId) {
@@ -2086,6 +2149,8 @@
       discSlots = [{ id: 0, files: [] }];
       basePbpFile = null; resultBlob = null;
       customAssets = { icon0: null, pic1: null, pic0: null, snd0: null, icon1: null };
+      lastProcessedFile = null;
+      document.getElementById('search-section').style.display = 'none';
 
       supplementalFiles = { keys: null, doc: null };
       ['keys', 'doc'].forEach(t => {
