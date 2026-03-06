@@ -978,9 +978,9 @@
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
         <a id="lnk-psxdata" href="#" target="_blank" class="btn-primary"
           style="text-decoration:none; padding:10px 15px; font-size:0.85rem; background:var(--accent2); color:#000; font-weight:bold;">🌐
-          PSX DataCenter에서 이미지 찾기</a>
-        <a href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" class="btn-secondary"
-          style="text-decoration:none; padding:10px 15px; font-size:0.85rem;">📀 고화질 박스아트 사이트</a>
+          PSX DataCenter에서 찾기</a>
+        <a id="lnk-unlucky" href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" class="btn-secondary"
+          style="text-decoration:none; padding:10px 15px; font-size:0.85rem;">📀 UnluckyForSome에서 찾기</a>
       </div>
       <div id="psx-preview"
         style="display:none; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:12px; border-radius:8px; border: 1px dashed var(--accent2);">
@@ -1263,6 +1263,10 @@
       const searchUrl = `https://psxdatacenter.com/search.html?q=${id}`;
       document.getElementById('lnk-psxdata').href = searchUrl;
 
+      // UnluckyForSome Search URL
+      const unluckyUrl = `https://unluckyforsome.github.io/PSX1G1B1C1D/?search=${cleanId}`;
+      document.getElementById('lnk-unlucky').href = unluckyUrl;
+
       // Guess Image Preview URL
       const thumb = document.getElementById('psx-thumb');
       let region = 'J';
@@ -1278,7 +1282,8 @@
       const imgUrl = `https://psxdatacenter.com/images/covers/${region}/${initial}/${cleanId}.jpg`;
       thumb.src = imgUrl;
       document.getElementById('psx-info-title').textContent = title || id;
-      // 2. GitHub psx-covers 고화질 이미지 시도
+
+      // 커버 이미지 로드: 여러 소스에서 순차적으로 시도
       const coverArea = document.getElementById('cover-area');
       const ghImg = document.getElementById('gh-cover-img');
       const ghBox = document.getElementById('gh-cover-box');
@@ -1288,7 +1293,22 @@
       const ph = ghBox.querySelector('.placeholder');
       if (ph) { ph.style.display = 'block'; ph.textContent = '커버 로딩 중...'; }
       ghImg.style.display = 'none';
-      ghImg.src = `https://raw.githubusercontent.com/xlenore/psx-covers/main/covers/default/${id}.jpg`;
+
+      // 이미지 로드 시도 목록 (순서대로 시도)
+      const imageSources = [
+        `https://raw.githubusercontent.com/xlenore/psx-covers/main/covers/default/${id}.jpg`,
+        `https://raw.githubusercontent.com/unluckyforsome/PSX1G1B1C1D/main/covers/${id}.png`,
+        `https://unluckyforsome.github.io/PSX1G1B1C1D/covers/${id}.png`
+      ];
+
+      ghImg.onerror = function() {
+        const currentIndex = imageSources.indexOf(ghImg.src);
+        if (currentIndex >= 0 && currentIndex < imageSources.length - 1) {
+          ghImg.src = imageSources[currentIndex + 1];
+        }
+      };
+
+      ghImg.src = imageSources[0];
     }
 
     // 커버 이미지 로드 핸들러 (버그 수정)
