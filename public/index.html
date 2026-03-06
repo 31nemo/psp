@@ -250,6 +250,65 @@
       border-color: var(--accent)
     }
 
+    /* ─ Info Split Layout ─ */
+    .info-split {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .info-left {
+      flex: 1;
+    }
+
+    .info-right {
+      width: 160px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cover-preview-box {
+      width: 160px;
+      height: 160px;
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .cover-preview-box.has-img {
+      border-style: solid;
+      border-color: var(--accent2);
+    }
+
+    .cover-preview-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      cursor: grab;
+      z-index: 2;
+    }
+
+    .cover-preview-box .placeholder {
+      color: var(--muted);
+      font-size: 0.7rem;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .asset-slot.drag-over {
+      border-color: var(--accent2) !important;
+      background: rgba(0, 212, 170, 0.1) !important;
+      transform: scale(1.02);
+    }
+
     /* ─ Compression ─ */
     .comp-row {
       display: flex;
@@ -842,31 +901,26 @@
     <!-- 4. 메타데이터 -->
     <div class="section">
       <div class="section-label">④ 게임 정보 (선택)</div>
-      <div class="input-group">
-        <label>게임 제목</label>
-        <input type="text" id="game-title" placeholder="예: Final Fantasy VII" maxlength="128" oninput="checkReady()" />
-      </div>
-      <div class="input-group">
-        <label>Game ID</label>
-        <input type="text" id="game-id" placeholder="예: SCUS-94163" maxlength="10" oninput="checkReady()" />
-      </div>
-
-      <!-- GitHub 고화질 커버 추가 (위치 상향 조정) -->
-      <div id="gh-cover-box"
-        style="display:none; margin: 5px 0 20px 0; background:rgba(255,255,255,0.1); padding:12px; border-radius:8px; border: 1px solid var(--accent2);">
-        <div
-          style="font-size:0.75rem; color:var(--accent2); font-weight:bold; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
-          ✨ GitHub 고화질 커버 (추천)
-        </div>
-        <div style="display:flex; align-items:center; gap:15px;">
-          <img id="gh-cover-img" src=""
-            style="width:120px; height:120px; object-fit:contain; border-radius:4px; background:#000; border:1px solid var(--border); cursor:grab;"
-            title="이 고화질 이미지를 드래그하여 아래 리소스 칸에 놓으세요" onerror="this.closest('#gh-cover-box').style.display='none'"
-            onload="this.closest('#gh-cover-box').style.display='block'" />
-          <div style="font-size:0.75rem; flex:1; color:var(--muted)">
-            <p style="margin:0 0 5px 0">GitHub <strong>psx-covers</strong> 기반 고화질 이미지입니다.</p>
-            <strong>드래그</strong>하여 아래 [ICON0 / PIC1] 칸에 즉시 적용 가능합니다.
+      <div class="info-split">
+        <div class="info-left">
+          <div class="input-group">
+            <label>게임 제목</label>
+            <input type="text" id="game-title" placeholder="예: Final Fantasy VII" maxlength="128"
+              oninput="checkReady()" />
           </div>
+          <div class="input-group">
+            <label>Game ID</label>
+            <input type="text" id="game-id" placeholder="예: SCUS-94163" maxlength="10" oninput="checkReady()" />
+          </div>
+        </div>
+        <div class="info-right">
+          <div class="cover-preview-box" id="gh-cover-box">
+            <img id="gh-cover-img" src="" draggable="true" ondragstart="handleGhDragStart(event)"
+              onerror="this.parentElement.classList.remove('has-img'); this.style.display='none'"
+              onload="this.parentElement.classList.add('has-img'); this.style.display='block'" style="display:none" />
+            <div class="placeholder">Game ID를 인식하면<br />커버가 표시됩니다</div>
+          </div>
+          <div style="font-size:0.65rem; color:var(--muted); text-align:center;">이미지를 아래 리소스 칸으로<br />드래그하여 적용하세요</div>
         </div>
       </div>
 
@@ -1370,6 +1424,50 @@
       document.getElementById('progress-fill').style.width = pct + '%';
       document.getElementById('progress-pct').textContent = pct + '%';
       if (label) document.getElementById('progress-label').textContent = label;
+    }
+
+    // ── 드래그 앤 드롭 고도화 ─────────────────────────────
+    function handleGhDragStart(e) {
+      const url = e.target.src;
+      e.dataTransfer.setData('text/plain', url);
+      e.dataTransfer.effectAllowed = 'copy';
+    }
+
+    function setupAssetDropZones() {
+      const slots = document.querySelectorAll('.asset-slot');
+      slots.forEach(slot => {
+        const type = slot.id.replace('as-', '');
+
+        slot.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          slot.classList.add('drag-over');
+        });
+
+        slot.addEventListener('dragleave', () => {
+          slot.classList.remove('drag-over');
+        });
+
+        slot.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          slot.classList.remove('drag-over');
+
+          const url = e.dataTransfer.getData('text/plain');
+          if (url && url.startsWith('http')) {
+            try {
+              log(`이미지 다운로드 및 적용 중: ${type}...`, '');
+              const response = await fetch(url);
+              const blob = await response.blob();
+              const filename = url.split('/').pop() || `${type}.png`;
+              const file = new File([blob], filename, { type: blob.type });
+              handleAsset(type, file);
+            } catch (err) {
+              console.error(err);
+              log(`❌ 이미지 적용 실패: ${err.message}`, 'err');
+            }
+          }
+        });
+      });
     }
 
     // ════════════════════════════════════════════════════════════
