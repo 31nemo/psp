@@ -1021,44 +1021,53 @@
         let sectorSize = 2048;
         let dataOffset = 0;
 
-        // Try ISO 9660 PVD (Sector 16)
+        // 1. ISO 9660 PVD 탐색 (Sector 16)
         let pvdBuf = await file.slice(16 * 2048, 16 * 2048 + 2048).arrayBuffer();
         let u8 = new Uint8Array(pvdBuf);
         if (u8[1] === 0x43 && u8[2] === 0x44 && u8[3] === 0x30 && u8[4] === 0x30 && u8[5] === 0x31) {
-          sectorSize = 2048;
-          dataOffset = 0;
+          sectorSize = 2048; dataOffset = 0;
         } else {
-          // Try BIN (Sector 16, 2352 bytes)
+          // BIN (2352 bytes/sector)
           pvdBuf = await file.slice(16 * 2352, 16 * 2352 + 2352).arrayBuffer();
           u8 = new Uint8Array(pvdBuf);
           if (u8[24 + 1] === 0x43 && u8[24 + 2] === 0x44 && u8[24 + 3] === 0x30 && u8[24 + 4] === 0x30 && u8[24 + 5] === 0x31) {
-            sectorSize = 2352;
-            dataOffset = 24;
-          } else {
-            return null;
+            sectorSize = 2352; dataOffset = 24;
           }
         }
 
-        const dv = new DataView(pvdBuf);
-        const rootExtent = dv.getUint32(dataOffset + 156 + 2, true);
-        const rootSize = dv.getUint32(dataOffset + 156 + 10, true);
+        if (u8[1] === 0x43 || u8[25] === 0x43) {
+          const dv = new DataView(pvdBuf);
+          const rootExtent = dv.getUint32(dataOffset + 156 + 2, true);
+          const rootSize = dv.getUint32(dataOffset + 156 + 10, true);
 
-        // Read Root Directory
-        const rootBuf = await file.slice(rootExtent * sectorSize, rootExtent * sectorSize + Math.min(rootSize, 32768)).arrayBuffer();
-        const rootU8 = new Uint8Array(rootBuf);
-        let pos = 0;
-        while (pos < rootU8.length) {
-          const entryLen = rootU8[pos];
-          if (entryLen === 0) break;
-          const nameLen = rootU8[pos + 32];
-          const name = new TextDecoder().decode(rootU8.slice(pos + 33, pos + 33 + nameLen));
-          if (name.toUpperCase().startsWith("SYSTEM.CNF")) {
-            const fExt = new DataView(rootBuf).getUint32(pos + 2, true);
-            const fSize = new DataView(rootBuf).getUint32(pos + 10, true);
-            const cnfBuf = await file.slice(fExt * sectorSize + dataOffset, fExt * sectorSize + dataOffset + fSize).arrayBuffer();
-            return new TextDecoder().decode(cnfBuf);
+          const rootBuf = await file.slice(rootExtent * sectorSize + dataOffset, rootExtent * sectorSize + dataOffset + Math.min(rootSize, 32768)).arrayBuffer();
+          const rootU8 = new Uint8Array(rootBuf);
+          let pos = 0;
+          while (pos < rootU8.length) {
+            const entryLen = rootU8[pos];
+            if (entryLen === 0) break;
+            const nameLen = rootU8[pos + 32];
+            const name = new TextDecoder().decode(rootU8.slice(pos + 33, pos + 33 + nameLen));
+            if (name.toUpperCase().startsWith("SYSTEM.CNF")) {
+              const fExt = new DataView(rootBuf).getUint32(pos + 2, true);
+              const fSize = new DataView(rootBuf).getUint32(pos + 10, true);
+              const cnfBuf = await file.slice(fExt * sectorSize + dataOffset, fExt * sectorSize + dataOffset + fSize).arrayBuffer();
+              return new TextDecoder().decode(cnfBuf);
+            }
+            pos += entryLen;
           }
-          pos += entryLen;
+        }
+
+        // 2. 폴백: 바이너리 직접 검색 (앞부분 10MB)
+        const searchSize = Math.min(file.size, 10 * 1024 * 1024);
+        const searchBuf = await file.slice(0, searchSize).arrayBuffer();
+        const searchU8 = new Uint8Array(searchBuf);
+        const pattern = new TextEncoder().encode("BOOT");
+        for (let i = 0; i < searchU8.length - 50; i++) {
+          if (searchU8[i] === 66 && searchU8[i + 1] === 79 && searchU8[i + 2] === 79 && searchU8[i + 3] === 84) {
+            const chunk = new TextDecoder().decode(searchU8.slice(i, i + 200));
+            if (chunk.includes("cdrom:")) return chunk;
+          }
         }
       } catch (e) { console.error(e); }
       return null;
