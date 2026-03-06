@@ -844,11 +844,11 @@
       <div class="section-label">④ 게임 정보 (선택)</div>
       <div class="input-group">
         <label>게임 제목</label>
-        <input type="text" id="game-title" placeholder="예: Final Fantasy VII" maxlength="128" />
+        <input type="text" id="game-title" placeholder="예: Final Fantasy VII" maxlength="128" oninput="checkReady()" />
       </div>
       <div class="input-group">
         <label>Game ID</label>
-        <input type="text" id="game-id" placeholder="예: SCUS-94163" maxlength="10" />
+        <input type="text" id="game-id" placeholder="예: SCUS-94163" maxlength="10" oninput="checkReady()" />
       </div>
       <div class="input-group" style="margin-bottom:0">
         <label>압축 레벨 (0 = 무압축, 빠름 / 9 = 최대, 느림)</label>
@@ -1016,11 +1016,81 @@
       return (n / 1073741824).toFixed(2) + ' GB';
     }
 
-    function tryAutoTitle() {
+    async function findSystemCnf(file) {
+      try {
+        let sectorSize = 2048;
+        let dataOffset = 0;
+
+        // Try ISO 9660 PVD (Sector 16)
+        let pvdBuf = await file.slice(16 * 2048, 16 * 2048 + 2048).arrayBuffer();
+        let u8 = new Uint8Array(pvdBuf);
+        if (u8[1] === 0x43 && u8[2] === 0x44 && u8[3] === 0x30 && u8[4] === 0x30 && u8[5] === 0x31) {
+          sectorSize = 2048;
+          dataOffset = 0;
+        } else {
+          // Try BIN (Sector 16, 2352 bytes)
+          pvdBuf = await file.slice(16 * 2352, 16 * 2352 + 2352).arrayBuffer();
+          u8 = new Uint8Array(pvdBuf);
+          if (u8[24 + 1] === 0x43 && u8[24 + 2] === 0x44 && u8[24 + 3] === 0x30 && u8[24 + 4] === 0x30 && u8[24 + 5] === 0x31) {
+            sectorSize = 2352;
+            dataOffset = 24;
+          } else {
+            return null;
+          }
+        }
+
+        const dv = new DataView(pvdBuf);
+        const rootExtent = dv.getUint32(dataOffset + 156 + 2, true);
+        const rootSize = dv.getUint32(dataOffset + 156 + 10, true);
+
+        // Read Root Directory
+        const rootBuf = await file.slice(rootExtent * sectorSize, rootExtent * sectorSize + Math.min(rootSize, 32768)).arrayBuffer();
+        const rootU8 = new Uint8Array(rootBuf);
+        let pos = 0;
+        while (pos < rootU8.length) {
+          const entryLen = rootU8[pos];
+          if (entryLen === 0) break;
+          const nameLen = rootU8[pos + 32];
+          const name = new TextDecoder().decode(rootU8.slice(pos + 33, pos + 33 + nameLen));
+          if (name.toUpperCase().startsWith("SYSTEM.CNF")) {
+            const fExt = new DataView(rootBuf).getUint32(pos + 2, true);
+            const fSize = new DataView(rootBuf).getUint32(pos + 10, true);
+            const cnfBuf = await file.slice(fExt * sectorSize + dataOffset, fExt * sectorSize + dataOffset + fSize).arrayBuffer();
+            return new TextDecoder().decode(cnfBuf);
+          }
+          pos += entryLen;
+        }
+      } catch (e) { console.error(e); }
+      return null;
+    }
+
+    let isExtracting = false;
+    async function tryAutoTitle() {
+      if (isExtracting) return;
       const firstDisc = discSlots[0];
       const firstFile = firstDisc.files.find(f => /\.(cue|bin|img|iso)$/i.test(f.name));
-      if (firstFile && !document.getElementById('game-title').value) {
+      if (!firstFile) return;
+
+      if (!document.getElementById('game-title').value) {
         document.getElementById('game-title').value = firstFile.name.replace(/\.(cue|bin|img|iso)$/i, '');
+      }
+
+      isExtracting = true;
+      try {
+        const cnf = await findSystemCnf(firstFile);
+        if (cnf) {
+          const match = cnf.match(/BOOT\s*=\s*cdrom:[\\/]?([^; \r\n]+)/i);
+          if (match) {
+            let id = match[1].split(/[\\/]/).pop().replace(/[\._]/g, '').toUpperCase();
+            if (id.length >= 9) {
+              const formattedId = id.substring(0, 4) + '-' + id.substring(4, 9);
+              document.getElementById('game-id').value = formattedId;
+              checkReady();
+            }
+          }
+        }
+      } finally {
+        isExtracting = false;
       }
     }
 
@@ -1138,6 +1208,7 @@
       const hasBase = !!basePbpFile;
       const anyDiscHasFile = discSlots.some(slot => slot.files.length > 0);
 
+      const gameId = document.getElementById('game-id').value.trim();
       const missingDiscs = discSlots.filter(slot => {
         if (!anyDiscHasFile && hasBase) return false;
         if (slot.files.length === 0) return false;
@@ -1149,7 +1220,9 @@
       const statusEl = document.getElementById('ready-status');
 
       let msg = "";
-      if (anyDiscHasFile && missingDiscs.length > 0) {
+      if (!gameId) {
+        msg = "⚠ Game ID를 입력해주세요.";
+      } else if (anyDiscHasFile && missingDiscs.length > 0) {
         msg = `⚠ 디스크 ${missingDiscs.map(s => discSlots.indexOf(s) + 1).join(', ')}번에 파일이 부족합니다.`;
       } else if (!hasBase && !anyDiscHasFile) {
         msg = "⚠ BIN/CUE 게임 파일 혹은 Base PBP를 등록해주세요.";
@@ -1164,7 +1237,7 @@
         statusEl.style.color = "var(--accent2)";
       }
 
-      const isReady = (hasBase && !anyDiscHasFile) || (anyDiscHasFile && missingDiscs.length === 0);
+      const isReady = !!gameId && ((hasBase && !anyDiscHasFile) || (anyDiscHasFile && missingDiscs.length === 0));
 
       if (isReady) {
         btn.disabled = false;
