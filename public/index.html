@@ -1263,8 +1263,10 @@
       const searchUrl = `https://psxdatacenter.com/search.html?q=${id}`;
       document.getElementById('lnk-psxdata').href = searchUrl;
 
-      // UnluckyForSome Search URL
-      const unluckyUrl = `https://unluckyforsome.github.io/PSX1G1B1C1D/?search=${cleanId}`;
+      // UnluckyForSome Search URL (게임 제목으로 검색)
+      const unluckyUrl = title
+        ? `https://unluckyforsome.github.io/PSX1G1B1C1D/?search=${encodeURIComponent(title)}`
+        : `https://unluckyforsome.github.io/PSX1G1B1C1D/`;
       document.getElementById('lnk-unlucky').href = unluckyUrl;
 
       // Guess Image Preview URL
