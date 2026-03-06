@@ -294,6 +294,7 @@
       object-fit: contain;
       cursor: grab;
       z-index: 2;
+      position: relative;
     }
 
     .cover-preview-box .placeholder {
@@ -301,6 +302,16 @@
       font-size: 0.7rem;
       text-align: center;
       padding: 10px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      z-index: 1;
+    }
+
+    .cover-preview-box.has-img .placeholder {
+      display: none;
     }
 
     .asset-slot.drag-over {
@@ -824,9 +835,44 @@
       </div>
     </div>
 
-    <!-- 3. 커스텀 리소스 (선택) -->
+    <div class="divider"></div>
+
+    <!-- 3. 게임 정보 -->
     <div class="section">
-      <div class="section-label">③ 커스텀 리소스 (선택) <span style="color:var(--muted);font-weight:400;text-transform:none">미등록
+      <div class="section-label">③ 게임 정보 (선택)</div>
+      <div class="info-split">
+        <div class="info-left">
+          <div class="input-group">
+            <label>게임 제목</label>
+            <input type="text" id="game-title" placeholder="예: Final Fantasy VII" maxlength="128"
+              oninput="checkReady()" />
+          </div>
+          <div class="input-group">
+            <label>Game ID</label>
+            <input type="text" id="game-id" placeholder="예: SCUS-94163" maxlength="10" oninput="checkReady()" />
+          </div>
+        </div>
+        <div class="info-right" id="cover-area" style="display:none; margin-top:15px;">
+          <div class="cover-preview-box" id="gh-cover-box">
+            <img id="gh-cover-img" src="" draggable="true" ondragstart="handleGhDragStart(event)"
+              onerror="this.parentElement.classList.remove('has-img'); this.style.display='none'"
+              onload="this.parentElement.classList.add('has-img'); this.style.display='block'" style="display:none" />
+            <div class="placeholder">커버 로딩 중...</div>
+          </div>
+          <div style="font-size:0.65rem; color:var(--muted); text-align:center; margin-top:8px;">이미지를 마우스로 끌어서<br />아래
+            <u>④ 리소스 칸</u>에 놓으세요</div>
+        </div>
+      </div>
+
+      <div class="input-group" style="margin-bottom:0">
+        <label>압축 레벨 (0 = 무압축, 빠름 / 9 = 최대, 느림)</label>
+        <div class="comp-row" id="comp-row"></div>
+      </div>
+    </div>
+
+    <!-- 4. 커스텀 리소스 (선택) -->
+    <div class="section">
+      <div class="section-label">④ 커스텀 리소스 (선택) <span style="color:var(--muted);font-weight:400;text-transform:none">미등록
           시 Base PBP 것을 사용합니다</span></div>
       <div class="asset-grid">
         <!-- ICON0 -->
@@ -893,40 +939,6 @@
           <span class="asset-name">SND0 (배경음)</span>
           <span class="asset-desc">AT3 형식</span>
         </div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- 4. 메타데이터 -->
-    <div class="section">
-      <div class="section-label">④ 게임 정보 (선택)</div>
-      <div class="info-split">
-        <div class="info-left">
-          <div class="input-group">
-            <label>게임 제목</label>
-            <input type="text" id="game-title" placeholder="예: Final Fantasy VII" maxlength="128"
-              oninput="checkReady()" />
-          </div>
-          <div class="input-group">
-            <label>Game ID</label>
-            <input type="text" id="game-id" placeholder="예: SCUS-94163" maxlength="10" oninput="checkReady()" />
-          </div>
-        </div>
-        <div class="info-right">
-          <div class="cover-preview-box" id="gh-cover-box">
-            <img id="gh-cover-img" src="" draggable="true" ondragstart="handleGhDragStart(event)"
-              onerror="this.parentElement.classList.remove('has-img'); this.style.display='none'"
-              onload="this.parentElement.classList.add('has-img'); this.style.display='block'" style="display:none" />
-            <div class="placeholder">Game ID를 인식하면<br />커버가 표시됩니다</div>
-          </div>
-          <div style="font-size:0.65rem; color:var(--muted); text-align:center;">이미지를 아래 리소스 칸으로<br />드래그하여 적용하세요</div>
-        </div>
-      </div>
-
-      <div class="input-group" style="margin-bottom:0">
-        <label>압축 레벨 (0 = 무압축, 빠름 / 9 = 최대, 느림)</label>
-        <div class="comp-row" id="comp-row"></div>
       </div>
     </div>
 
@@ -1244,9 +1256,14 @@
       document.getElementById('psx-info-title').textContent = title || id;
 
       // 2. GitHub psx-covers 고화질 이미지 시도
+      const coverArea = document.getElementById('cover-area');
       const ghImg = document.getElementById('gh-cover-img');
-      const ghUrl = `https://raw.githubusercontent.com/xlenore/psx-covers/main/covers/default/${id}.jpg`;
-      ghImg.src = ghUrl;
+      const ghBox = document.getElementById('gh-cover-box');
+
+      coverArea.style.display = 'flex';
+      ghBox.classList.remove('has-img');
+      ghImg.style.display = 'none';
+      ghImg.src = `https://raw.githubusercontent.com/xlenore/psx-covers/main/covers/default/${id}.jpg`;
     }
 
     // ── Base PBP 드롭존 (공통) ───────────────────────────
@@ -2278,7 +2295,13 @@
       customAssets = { icon0: null, pic1: null, pic0: null, snd0: null, icon1: null };
       lastProcessedFile = null;
       document.getElementById('search-section').style.display = 'none';
-      document.getElementById('gh-cover-box').style.display = 'none';
+      const coverArea = document.getElementById('cover-area');
+      if (coverArea) coverArea.style.display = 'none';
+      const ghImg = document.getElementById('gh-cover-img');
+      if (ghImg) {
+        ghImg.src = '';
+        ghImg.closest('.cover-preview-box').classList.remove('has-img');
+      }
 
       supplementalFiles = { keys: null, doc: null };
       ['keys', 'doc'].forEach(t => {
