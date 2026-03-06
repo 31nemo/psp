@@ -977,7 +977,7 @@
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
         <a id="lnk-psxdata" href="#" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🌐 PSX DataCenter</a>
-        <a id="lnk-unlucky" onclick="openUnluckyWithSearch(event)" href="#" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📀 UnluckyForSome</a>
+        <a href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📀 UnluckyForSome</a>
       </div>
       <div id="psx-preview"
         style="display:none; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:12px; border-radius:8px; border: 1px dashed var(--accent2);">
@@ -1616,25 +1616,6 @@
       } catch (err) {
         console.error(err);
         alert(`다운로드 실패: ${err.message}`);
-      }
-    }
-
-    function openUnluckyWithSearch(e) {
-      e.preventDefault();
-      const title = document.getElementById('game-title').value.trim();
-      const firstWord = title ? title.split(/\s+/)[0] : '';
-
-      // UnluckyForSome 사이트를 filter 파라미터와 함께 열기
-      // JavaScript에서 URLSearchParams를 읽어 자동으로 filter 필드에 입력
-      const unluckyUrl = firstWord
-        ? `https://unluckyforsome.github.io/PSX1G1B1C1D/?filter=${encodeURIComponent(firstWord)}`
-        : 'https://unluckyforsome.github.io/PSX1G1B1C1D/';
-
-      window.open(unluckyUrl, '_blank');
-
-      // 사용자 피드백
-      if (firstWord) {
-        log(`'${firstWord}'로 UnluckyForSome을 검색합니다...`, 'ok');
       }
     }
 
