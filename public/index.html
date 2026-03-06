@@ -970,9 +970,9 @@
           <div class="dropzone ${slot.files.length ? 'has-files' : ''}" id="dz-${slot.id}" style="padding: 24px 16px;">
             <input type="file" multiple accept=".cue,.bin" onchange="handleSlotFiles(${slot.id}, this.files)" />
             <div class="dz-icon" style="font-size: 1.8rem;">📀</div>
-            <div class="dz-title" style="font-size: 0.9rem;">${slot.files.length ? '등록 완료' : 'CUE + BIN 등록'}</div>
+            <div class="dz-title" style="font-size: 0.9rem;">${slot.files.length ? '등록 완료' : 'CUE + BIN/IMG/ISO 등록'}</div>
             <div class="dz-sub" style="font-size: 0.75rem;">
-              ${slot.files.length ? `${slot.files.length}개 파일` : '.cue / .bin (CHD 지원안됨)'}
+              ${slot.files.length ? `${slot.files.length}개 파일` : '.cue / .bin / .img / .iso'}
             </div>
           </div>
           <div id="list-${slot.id}" style="margin-top:8px; font-size:0.75rem; font-family:'JetBrains Mono', monospace; max-height: 80px; overflow-y: auto;">
@@ -1001,7 +1001,7 @@
       if (hasChd) {
         alert("⚠ CHD 포맷은 지원되지 않습니다.\n\nCHD는 고도로 압축된 포맷으로 브라우저에서 직접 변환하기에는 기술적 한계가 있습니다. 'chdman' 등의 도구로 BIN/CUE로 먼저 변환하신 후 업로드해 주세요.");
       }
-      const files = allFiles.filter(f => /\.(cue|bin)$/i.test(f.name));
+      const files = allFiles.filter(f => /\.(cue|bin|img|iso)$/i.test(f.name));
       if (!files.length) return;
       const slot = discSlots.find(s => s.id === slotId);
       if (slot) slot.files = files;
@@ -1018,9 +1018,9 @@
 
     function tryAutoTitle() {
       const firstDisc = discSlots[0];
-      const firstFile = firstDisc.files.find(f => /\.(cue|bin)$/i.test(f.name));
+      const firstFile = firstDisc.files.find(f => /\.(cue|bin|img|iso)$/i.test(f.name));
       if (firstFile && !document.getElementById('game-title').value) {
-        document.getElementById('game-title').value = firstFile.name.replace(/\.(cue|bin)$/i, '');
+        document.getElementById('game-title').value = firstFile.name.replace(/\.(cue|bin|img|iso)$/i, '');
       }
     }
 
@@ -1141,7 +1141,7 @@
       const missingDiscs = discSlots.filter(slot => {
         if (!anyDiscHasFile && hasBase) return false;
         if (slot.files.length === 0) return false;
-        const hasBin = slot.files.some(f => /\.bin$/i.test(f.name));
+        const hasBin = slot.files.some(f => /\.(bin|img|iso)$/i.test(f.name));
         return !hasBin;
       });
 
@@ -1908,7 +1908,7 @@
       const anyDiscHasFile = discSlots.some(slot => slot.files.length > 0);
       if (!anyDiscHasFile && !basePbpFile) return alert('게임 이미지 혹은 Base PBP 파일이 필요합니다.');
       if (anyDiscHasFile && discSlots.some(s => {
-        const hasBin = s.files.some(f => /\.bin$/i.test(f.name));
+        const hasBin = s.files.some(f => /\.(bin|img|iso)$/i.test(f.name));
         return s.files.length > 0 && !hasBin;
       })) return alert('각 디스크 슬롯에는 최소한 BIN 파일이 포함되어야 합니다.');
 
@@ -1947,8 +1947,8 @@
             if (cueFile) {
               cue = parseCue(await cueFile.text());
             } else {
-              const binFile = slot.files.find(f => /\.bin$/i.test(f.name));
-              if (!binFile) throw new Error(`Disc ${i + 1}: BIN 파일이 없습니다.`);
+              const binFile = slot.files.find(f => /\.(bin|img|iso)$/i.test(f.name));
+              if (!binFile) throw new Error(`Disc ${i + 1}: BIN/IMG/ISO 파일이 없습니다.`);
               log(`Disc ${i + 1}: CUE 파일 없음 -> 기본 CUE 구조 생성`, 'warn');
               cue = {
                 fileEntries: [{
