@@ -857,26 +857,30 @@
     </div>
 
     <!-- 5. 리소스 검색 지원 -->
-    <div class="section" id="search-section" style="display:none; margin-top:20px;">
-      <div class="section-label">🔍 게임 리소스 찾기</div>
-      <div style="font-size:0.8rem; color:var(--muted); margin-bottom:12px;">
-        추출된 ID로 아이콘과 배경화면을 찾아보세요. 이미지를 슬롯에 드래그하여 적용할 수 있습니다.
+    <div class="section" id="search-section"
+      style="display:none; margin-top:20px; border: 1px solid var(--accent2); background: rgba(0, 204, 255, 0.05);">
+      <div class="section-label" style="color:var(--accent2)">🔍 게임 리소스 자동 검색</div>
+      <div style="font-size:0.8rem; line-height:1.4; margin-bottom:12px;">
+        ISO/BIN 파일에는 아이콘 이미지가 포함되어 있지 않습니다.<br />
+        <strong>1.</strong> 아래 버튼을 눌러 이미지를 찾으세요.<br />
+        <strong>2.</strong> 찾은 이미지를 <strong>마우스로 끌어서(Drag)</strong> 아래의 아이콘/배경 칸에 놓으면 적용됩니다.
       </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <a id="lnk-psxdata" href="#" target="_blank" class="btn-secondary"
-          style="text-decoration:none; padding:8px 12px; font-size:0.8rem; border: 1px solid var(--accent2); color: var(--accent2);">🌐
-          PSX DataCenter (상세정보)</a>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
+        <a id="lnk-psxdata" href="#" target="_blank" class="btn-primary"
+          style="text-decoration:none; padding:10px 15px; font-size:0.85rem; background:var(--accent2); color:#000; font-weight:bold;">🌐
+          PSX DataCenter에서 이미지 찾기</a>
         <a href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" class="btn-secondary"
-          style="text-decoration:none; padding:8px 12px; font-size:0.8rem;">📀 PS1 2D BoxArt (고화질)</a>
+          style="text-decoration:none; padding:10px 15px; font-size:0.85rem;">📀 고화질 박스아트 사이트</a>
       </div>
       <div id="psx-preview"
-        style="margin-top:15px; display:flex; align-items:center; gap:15px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; border: 1px dashed var(--border);">
+        style="display:none; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:12px; border-radius:8px; border: 1px dashed var(--accent2);">
         <img id="psx-thumb" src=""
-          style="width:80px; height:80px; object-fit:contain; border-radius:4px; background:#000; border:1px solid var(--border);"
-          onerror="this.parentElement.style.display='none'" onload="this.parentElement.style.display='flex'" />
-        <div style="font-size:0.75rem;">
-          <div id="psx-info-title" style="font-weight:bold; margin-bottom:4px; color:var(--accent2);"></div>
-          <div style="color:var(--muted)">위 검색 링크에서 더 많은 리소스를 얻을 수 있습니다.</div>
+          style="width:100px; height:100px; object-fit:contain; border-radius:4px; background:#000; border:1px solid var(--border); cursor:grab;"
+          title="이 이미지를 드래그하여 아래 리소스 칸에 놓으세요" />
+        <div style="font-size:0.8rem; flex:1">
+          <div id="psx-info-title" style="font-weight:bold; margin-bottom:4px; color:var(--accent2); font-size:0.9rem;">
+          </div>
+          <div style="color:var(--muted)">위 이미지를 <strong>드래그</strong>하여 아래 <br />[ICON0 / PIC1] 칸에 등록하세요.</div>
         </div>
       </div>
     </div>
