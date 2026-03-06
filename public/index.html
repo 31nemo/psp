@@ -1260,13 +1260,6 @@
       const searchUrl = `https://psxdatacenter.com/search.html?q=${id}`;
       document.getElementById('lnk-psxdata').href = searchUrl;
 
-      // UnluckyForSome Search URL (게임 제목의 첫 단어로 filter 검색)
-      const firstWord = title ? title.split(/\s+/)[0] : '';
-      const unluckyUrl = firstWord
-        ? `https://unluckyforsome.github.io/PSX1G1B1C1D/?filter=${encodeURIComponent(firstWord)}`
-        : `https://unluckyforsome.github.io/PSX1G1B1C1D/`;
-      document.getElementById('lnk-unlucky').href = unluckyUrl;
-
       // Guess Image Preview URL
       const thumb = document.getElementById('psx-thumb');
       let region = 'J';
