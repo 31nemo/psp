@@ -855,12 +855,13 @@
         <div class="info-right" id="cover-area" style="display:none; margin-top:15px;">
           <div class="cover-preview-box" id="gh-cover-box">
             <img id="gh-cover-img" src="" draggable="true" ondragstart="handleGhDragStart(event)"
-              onerror="this.parentElement.classList.remove('has-img'); this.style.display='none'"
-              onload="this.parentElement.classList.add('has-img'); this.style.display='block'" style="display:none" />
+              onerror="onCoverError(this)" onload="onCoverLoad(this)" style="display:none" />
             <div class="placeholder">커버 로딩 중...</div>
           </div>
-          <div style="font-size:0.65rem; color:var(--muted); text-align:center; margin-top:8px;">이미지를 마우스로 끌어서<br />아래
-            <u>④ 리소스 칸</u>에 놓으세요</div>
+          <div style="font-size:0.65rem; color:var(--muted); text-align:center; margin-top:8px;">
+            위 이미지를 <strong>마우스로 끌어서</strong><br />
+            아래 <u>④ 리소스 슬롯</u>에 놓으세요
+          </div>
         </div>
       </div>
 
@@ -1254,7 +1255,6 @@
       const imgUrl = `https://psxdatacenter.com/images/covers/${region}/${initial}/${cleanId}.jpg`;
       thumb.src = imgUrl;
       document.getElementById('psx-info-title').textContent = title || id;
-
       // 2. GitHub psx-covers 고화질 이미지 시도
       const coverArea = document.getElementById('cover-area');
       const ghImg = document.getElementById('gh-cover-img');
@@ -1262,8 +1262,24 @@
 
       coverArea.style.display = 'flex';
       ghBox.classList.remove('has-img');
+      const ph = ghBox.querySelector('.placeholder');
+      if (ph) { ph.style.display = 'block'; ph.textContent = '커버 로딩 중...'; }
       ghImg.style.display = 'none';
       ghImg.src = `https://raw.githubusercontent.com/xlenore/psx-covers/main/covers/default/${id}.jpg`;
+    }
+
+    // 커버 이미지 로드 핸들러 (버그 수정)
+    function onCoverLoad(img) {
+      img.parentElement.classList.add('has-img');
+      img.style.display = 'block';
+      const ph = img.parentElement.querySelector('.placeholder');
+      if (ph) ph.style.display = 'none';
+    }
+    function onCoverError(img) {
+      img.parentElement.classList.remove('has-img');
+      img.style.display = 'none';
+      const ph = img.parentElement.querySelector('.placeholder');
+      if (ph) ph.textContent = '이미지 없음';
     }
 
     // ── Base PBP 드롭존 (공통) ───────────────────────────
@@ -1444,10 +1460,18 @@
     }
 
     // ── 드래그 앤 드롭 고도화 ─────────────────────────────
+    let draggedImageUrl = null;
     function handleGhDragStart(e) {
       const url = e.target.src;
+      draggedImageUrl = url;
       e.dataTransfer.setData('text/plain', url);
+      e.dataTransfer.setData('text/uri-list', url);
       e.dataTransfer.effectAllowed = 'copy';
+
+      // 드래그 고스트 이미지 설정 (선택 사항)
+      const ghost = new Image();
+      ghost.src = url;
+      e.dataTransfer.setDragImage(e.target, 20, 20);
     }
 
     function setupAssetDropZones() {
@@ -1455,32 +1479,43 @@
       slots.forEach(slot => {
         const type = slot.id.replace('as-', '');
 
+        // 기존 드래그오버 중복 방지
+        slot.removeEventListener('dragover', null);
+
         slot.addEventListener('dragover', (e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'copy';
           slot.classList.add('drag-over');
         });
 
-        slot.addEventListener('dragleave', () => {
-          slot.classList.remove('drag-over');
+        slot.addEventListener('dragleave', (e) => {
+          if (!slot.contains(e.relatedTarget)) {
+            slot.classList.remove('drag-over');
+          }
         });
 
         slot.addEventListener('drop', async (e) => {
           e.preventDefault();
           slot.classList.remove('drag-over');
 
-          const url = e.dataTransfer.getData('text/plain');
+          let url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || draggedImageUrl;
+
           if (url && url.startsWith('http')) {
             try {
-              log(`이미지 다운로드 및 적용 중: ${type}...`, '');
+              log(`이미지 연동 중: ${type}...`, '');
               const response = await fetch(url);
+              if (!response.ok) throw new Error('Network response was not ok');
               const blob = await response.blob();
-              const filename = url.split('/').pop() || `${type}.png`;
+              const filename = url.split('/').pop().split('?')[0] || `${type}.png`;
               const file = new File([blob], filename, { type: blob.type });
               handleAsset(type, file);
+              log(`✅ 리소스 적용 성공: ${type}`, 'ok');
             } catch (err) {
               console.error(err);
               log(`❌ 이미지 적용 실패: ${err.message}`, 'err');
+              alert(`이미지 적용 실패: ${err.message}\n직접 저장 후 업로드해주세요.`);
+            } finally {
+              draggedImageUrl = null; // 초기화
             }
           }
         });
