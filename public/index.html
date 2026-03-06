@@ -127,7 +127,7 @@
     .dropzone {
       border: 2px dashed var(--border);
       border-radius: 12px;
-      padding: 36px 20px;
+      padding: 18px 12px;
       text-align: center;
       cursor: pointer;
       transition: border-color .2s, background .2s;
@@ -153,19 +153,19 @@
     }
 
     .dz-icon {
-      font-size: 2.6rem;
-      margin-bottom: 10px
+      font-size: 1.8rem;
+      margin-bottom: 6px
     }
 
     .dz-title {
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: 600;
-      margin-bottom: 4px
+      margin-bottom: 2px
     }
 
     .dz-sub {
       color: var(--muted);
-      font-size: .82rem
+      font-size: .75rem
     }
 
     .badge {
@@ -323,6 +323,21 @@
     /* 드래그 중 입력 필드 간섭 차단 */
     body.is-dragging .asset-slot input {
       pointer-events: none;
+    }
+
+    /* ─ Top Side-by-Side ─ */
+    .top-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 600px) {
+      .top-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     /* ─ Compression ─ */
@@ -781,61 +796,58 @@
 
   <div class="card">
 
-    <!-- 1. 게임 파일 (멀티 디스크 지원) -->
-    <div class="section">
-      <div class="section-label">① 게임 이미지 (CUE + BIN)</div>
-      <div id="disc-slots-container" class="disc-slots">
-        <!-- slots will be injected here via JS -->
-      </div>
-      <button class="add-disc-btn" id="add-disc-btn" onclick="addDiscSlot()" style="display: none;">
-        <span>➕</span> 디스크 추가 (최대 5장)
-      </button>
-    </div>
-
-    <!-- 2. Base PBP -->
-    <div class="section">
-      <div class="section-label">② Base PBP <span style="color:var(--muted);font-weight:400;text-transform:none">(PSP 커널
-          포함 EBOOT.PBP)</span></div>
-      <div class="dropzone" id="dz-base" style="padding: 24px 16px;">
-        <input type="file" id="fi-base" accept=".pbp,.bin,.dat" multiple />
-        <div class="dz-icon" style="font-size: 1.8rem;">💾</div>
-        <div class="dz-title" style="font-size: 0.95rem;">Base EBOOT.PBP 등록</div>
-        <div class="dz-sub" style="font-size: 0.75rem;"><span class="badge">.pbp</span> 필수</div>
-      </div>
-      <div style="margin-top: 8px; font-size: 0.75rem; color: var(--muted); line-height: 1.4;">
-        💡 <b>Tip</b>: 기본 엔진이 내장되어 있어 Base PBP 없이도 변환 가능하지만, <b>작동이 확인된 PBP</b>를 ②번 칸에 등록하는 것을
-        <b>강력 추천</b>합니다. 실기 및 에뮬레이터 호환성이 획기적으로 향상됩니다.
-      </div>
-      <div id="base-info" style="margin-top:10px;display:none"></div>
-
-      <div class="asset-grid" style="margin-top:15px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
-        <!-- KEYS.BIN -->
-        <div class="asset-slot" id="as-keys" title="PSN 게임의 암호 해독을 위한 키 파일입니다. (KEYS.BIN)">
-          <div class="asset-controls">
-            <button class="asset-btn" title="다운로드" onclick="downloadSupplemental('keys', event)">⬇</button>
-            <button class="asset-btn del" title="삭제" onclick="removeSupplemental('keys', event)">✕</button>
-          </div>
-          <input type="file" accept=".bin" onchange="handleSupplemental('keys', this.files[0])" />
-          <div class="asset-icon">🔑</div>
-          <div class="asset-preview" id="prev-keys"
-            style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1.2rem;">🔐
-          </div>
-          <span class="asset-name">KEYS.BIN</span>
-          <span class="asset-desc">암호 해독 키</span>
+    <div class="top-grid">
+      <!-- 1. 게임 파일 (멀티 디스크 지원) -->
+      <div class="section" style="margin-bottom:0">
+        <div class="section-label">① 게임 이미지 (CUE + BIN)</div>
+        <div id="disc-slots-container" class="disc-slots">
+          <!-- slots will be injected here via JS -->
         </div>
-        <!-- DOCUMENT.DAT -->
-        <div class="asset-slot" id="as-doc" title="게임 메뉴에서 볼 수 있는 디지털 매뉴얼 파일입니다. (DOCUMENT.DAT)">
-          <div class="asset-controls">
-            <button class="asset-btn" title="다운로드" onclick="downloadSupplemental('doc', event)">⬇</button>
-            <button class="asset-btn del" title="삭제" onclick="removeSupplemental('doc', event)">✕</button>
+        <button class="add-disc-btn" id="add-disc-btn" onclick="addDiscSlot()" style="display: none;">
+          <span>➕</span> 디스크 추가 (최대 5장)
+        </button>
+      </div>
+
+      <!-- 2. Base PBP -->
+      <div class="section" style="margin-bottom:0">
+        <div class="section-label">② Base PBP <span style="color:var(--muted);font-weight:400;text-transform:none">(PSP
+            커널 포함)</span></div>
+        <div class="dropzone" id="dz-base">
+          <input type="file" id="fi-base" accept=".pbp,.bin,.dat" multiple />
+          <div class="dz-icon">💾</div>
+          <div class="dz-title">Base EBOOT.PBP 등록</div>
+          <div class="dz-sub"><span class="badge">.pbp</span> 필수</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.72rem; color: var(--muted); line-height: 1.4;">
+          💡 <b>Tip</b>: 엔진 내장으로 미등록 시에도 변환 가능하지만, <b>작동 PBP</b> 등록을 <b>강력 추천</b>합니다.
+        </div>
+        <div id="base-info" style="margin-top:10px;display:none"></div>
+
+        <div class="asset-grid" style="margin-top:12px; grid-template-columns: 1fr 1fr;">
+          <!-- KEYS.BIN -->
+          <div class="asset-slot" id="as-keys" title="KEYS.BIN">
+            <div class="asset-controls">
+              <button class="asset-btn del" title="삭제" onclick="removeSupplemental('keys', event)">✕</button>
+            </div>
+            <input type="file" accept=".bin" onchange="handleSupplemental('keys', this.files[0])" />
+            <div class="asset-icon" style="font-size:1.1rem;margin-bottom:2px;">🔑</div>
+            <div class="asset-preview" id="prev-keys"
+              style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1rem;">🔐
+            </div>
+            <span class="asset-name" style="font-size:0.65rem">KEYS.BIN</span>
           </div>
-          <input type="file" accept=".dat" onchange="handleSupplemental('doc', this.files[0])" />
-          <div class="asset-icon">📘</div>
-          <div class="asset-preview" id="prev-doc"
-            style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1.2rem;">📖
+          <!-- DOCUMENT.DAT -->
+          <div class="asset-slot" id="as-doc" title="DOCUMENT.DAT">
+            <div class="asset-controls">
+              <button class="asset-btn del" title="삭제" onclick="removeSupplemental('doc', event)">✕</button>
+            </div>
+            <input type="file" accept=".dat" onchange="handleSupplemental('doc', this.files[0])" />
+            <div class="asset-icon" style="font-size:1.1rem;margin-bottom:2px;">📘</div>
+            <div class="asset-preview" id="prev-doc"
+              style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1rem;">📖
+            </div>
+            <span class="asset-name" style="font-size:0.65rem">DOCUMENT.DAT</span>
           </div>
-          <span class="asset-name">DOCUMENT.DAT</span>
-          <span class="asset-desc">디지털 매뉴얼</span>
         </div>
       </div>
     </div>
@@ -1088,12 +1100,12 @@
             <div class="disc-slot-title">💿 디스크 ${index + 1}</div>
             ${discSlots.length > 1 ? `<button class="remove-disc-btn" onclick="removeDiscSlot(${slot.id})">제거</button>` : ''}
           </div>
-          <div class="dropzone ${slot.files.length ? 'has-files' : ''}" id="dz-${slot.id}" style="padding: 24px 16px;">
+          <div class="dropzone ${slot.files.length ? 'has-files' : ''}" id="dz-${slot.id}">
             <input type="file" multiple accept=".cue,.bin" onchange="handleSlotFiles(${slot.id}, this.files)" />
-            <div class="dz-icon" style="font-size: 1.8rem;">📀</div>
-            <div class="dz-title" style="font-size: 0.9rem;">${slot.files.length ? '등록 완료' : 'CUE + BIN/IMG/ISO 등록'}</div>
-            <div class="dz-sub" style="font-size: 0.75rem;">
-              ${slot.files.length ? `${slot.files.length}개 파일` : '.cue / .bin / .img / .iso'}
+            <div class="dz-icon">📀</div>
+            <div class="dz-title">${slot.files.length ? '등록 완료' : '파일 등록'}</div>
+            <div class="dz-sub">
+              ${slot.files.length ? `${slot.files.length}개 파일` : '.cue / .bin / .iso'}
             </div>
           </div>
           <div id="list-${slot.id}" style="margin-top:8px; font-size:0.75rem; font-family:'JetBrains Mono', monospace; max-height: 80px; overflow-y: auto;">
