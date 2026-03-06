@@ -1624,17 +1624,17 @@
       const title = document.getElementById('game-title').value.trim();
       const firstWord = title ? title.split(/\s+/)[0] : '';
 
-      // 클립보드에 첫 단어 복사
-      if (firstWord) {
-        navigator.clipboard.writeText(firstWord).then(() => {
-          log(`'${firstWord}' 를(을) 클립보드에 복사했습니다. UnluckyForSome의 filter 필드에 붙여넣으세요.`, 'ok');
-        }).catch(err => {
-          console.error('클립보드 복사 실패:', err);
-        });
-      }
+      // UnluckyForSome 사이트를 해시와 함께 열기 (자동 검색 시도)
+      const unluckyUrl = firstWord
+        ? `https://unluckyforsome.github.io/PSX1G1B1C1D/#${encodeURIComponent(firstWord)}`
+        : 'https://unluckyforsome.github.io/PSX1G1B1C1D/';
 
-      // UnluckyForSome 사이트 열기
-      window.open('https://unluckyforsome.github.io/PSX1G1B1C1D/', '_blank');
+      window.open(unluckyUrl, '_blank');
+
+      // 사용자 피드백
+      if (firstWord) {
+        log(`'${firstWord}'로 UnluckyForSome을 검색합니다...`, 'ok');
+      }
     }
 
     function handleGhDragStart(e) {
