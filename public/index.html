@@ -975,12 +975,9 @@
         <strong>1.</strong> 아래 버튼을 눌러 이미지를 찾으세요.<br />
         <strong>2.</strong> 찾은 이미지를 <strong>마우스로 끌어서(Drag)</strong> 아래의 아이콘/배경 칸에 놓으면 적용됩니다.
       </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;">
-        <a id="lnk-psxdata" href="#" target="_blank" class="btn-primary"
-          style="text-decoration:none; padding:10px 15px; font-size:0.85rem; background:var(--accent2); color:#000; font-weight:bold;">🌐
-          PSX DataCenter에서 찾기</a>
-        <a id="lnk-unlucky" href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" class="btn-secondary"
-          style="text-decoration:none; padding:10px 15px; font-size:0.85rem;">📀 UnluckyForSome에서 찾기</a>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
+        <a id="lnk-psxdata" href="#" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🌐 PSX DataCenter</a>
+        <a id="lnk-unlucky" href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📀 UnluckyForSome</a>
       </div>
       <div id="psx-preview"
         style="display:none; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:12px; border-radius:8px; border: 1px dashed var(--accent2);">
@@ -1266,9 +1263,10 @@
       const searchUrl = `https://psxdatacenter.com/search.html?q=${id}`;
       document.getElementById('lnk-psxdata').href = searchUrl;
 
-      // UnluckyForSome Search URL (게임 제목으로 검색)
-      const unluckyUrl = title
-        ? `https://unluckyforsome.github.io/PSX1G1B1C1D/?search=${encodeURIComponent(title)}`
+      // UnluckyForSome Search URL (게임 제목의 첫 단어로 filter 검색)
+      const firstWord = title ? title.split(/\s+/)[0] : '';
+      const unluckyUrl = firstWord
+        ? `https://unluckyforsome.github.io/PSX1G1B1C1D/?filter=${encodeURIComponent(firstWord)}`
         : `https://unluckyforsome.github.io/PSX1G1B1C1D/`;
       document.getElementById('lnk-unlucky').href = unluckyUrl;
       document.getElementById('lnk-unlucky-search').href = unluckyUrl;
