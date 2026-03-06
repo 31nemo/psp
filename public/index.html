@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>PSX PBP Converter — CUE+BIN to PBP (Pure JS)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <!-- pako: zlib/deflate in browser -->
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #0d0f1a;
+      --surface: #141726;
+      --card: #1a1e30;
+      --border: #252a42;
+      --accent: #6c63ff;
+      --accent2: #00d4aa;
+      --text: #e8eaf6;
+      --muted: #8892b0;
+      --error: #ff6b6b;
+      --success: #00d4aa;
+      --warn: #ffd166;
+      --radius: 16px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 16px 80px;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 50% -20%, rgba(108, 99, 255, .18) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 90% 80%, rgba(0, 212, 170, .10) 0%, transparent 70%);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px
+    }
+
+    .logo-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 32px rgba(108, 99, 255, .45);
+    }
+
+    h1 {
+      font-size: 2.1rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-top: 6px
+    }
+
+    .card {
+      width: 100%;
+      max-width: 700px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+
+    /* ─ Section ─ */
+    .section {
+      margin-bottom: 24px
+    }
+
+    .section-label {
+      font-size: .75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 10px;
+      font-weight: 600
+    }
+
+    /* ─ Drop zone ─ */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, .06)
+    }
+
+    .dropzone.has-files {
+      border-color: var(--accent2);
+      background: rgba(0, 212, 170, .05)
+    }
+
+    .dropzone input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer
+    }
+
+    .dz-icon {
+      font-size: 2.6rem;
+      margin-bottom: 10px
+    }
+
+    .dz-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 4px
+    }
+
+    .dz-sub {
+      color: var(--muted);
+      font-size: .82rem
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(108, 99, 255, .2);
+      border: 1px solid rgba(108, 99, 255, .35);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-size: .72rem;
+      margin: 2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─ File list ─ */
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--surface);
+      margin-bottom: 5px;
+      font-size: .85rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .ext {
+      font-size: .7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700
+    }
+
+    .ext-cue {
+      background: rgba(108, 99, 255, .25);
+      color: #a29dff
+    }
+
+    .ext-bin {
+      background: rgba(0, 212, 170, .18);
+      color: #00d49a
+    }
+
+    .ext-pbp {
+      background: rgba(255, 100, 100, .2);
+      color: #ff9a9a
+    }
+
+    .file-size {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: .78rem
+    }
+
+    /* ─ Input field ─ */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px
+    }
+
+    .input-group label {
+      font-size: .8rem;
+      color: var(--muted);
+      font-weight: 500
+    }
+
+    .input-group input[type=text] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-size: .9rem;
+      font-family: 'Inter', sans-serif;
+      transition: border-color .2s;
+    }
+
+    .input-group input[type=text]:focus {
+      outline: none;
+      border-color: var(--accent)
+    }
+
+    /* ─ Compression ─ */
+    .comp-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .comp-btn {
+      flex: 1;
+      min-width: 60px;
+      padding: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: .8rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+    }
+
+    .comp-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(108, 99, 255, .1)
+    }
+
+    .comp-btn:hover:not(.active) {
+      border-color: var(--border);
+      color: var(--text)
+    }
+
+    /* ─ Buttons ─ */
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--accent), #9c3dff);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: .02em;
+      transition: opacity .2s, transform .15s;
+      display: block;
+      /* 항상 노출 */
+      margin-top: 20px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      opacity: .9;
+      transform: translateY(-1px)
+    }
+
+    .btn-primary:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none
+    }
+
+    .btn-secondary {
+      width: 100%;
+      margin-top: 12px;
+      padding: 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: .88rem;
+      cursor: pointer;
+      display: none;
+      transition: border-color .2s, color .2s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--text)
+    }
+
+    /* ─ Multi Disc Slots ─ */
+    .disc-slots {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .disc-slot {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .disc-slot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .disc-slot-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent2);
+    }
+
+    .remove-disc-btn {
+      background: none;
+      border: 1px solid var(--error);
+      color: var(--error);
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      opacity: 0.75;
+      transition: all 0.2s;
+    }
+
+    .remove-disc-btn:hover {
+      opacity: 1;
+      background: rgba(255, 107, 107, 0.1);
+    }
+
+    .add-disc-btn {
+      width: 100%;
+      padding: 12px;
+      border: 1px dashed var(--accent);
+      background: rgba(108, 99, 255, 0.05);
+      color: var(--accent);
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .add-disc-btn:hover {
+      background: rgba(108, 99, 255, 0.1);
+      transform: translateY(-1px);
+    }
+
+    /* ─ Progress ─ */
+    .progress-wrap {
+      display: none;
+      margin-top: 20px
+    }
+
+    .progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px
+    }
+
+    .progress-label {
+      font-size: .88rem;
+      font-weight: 500
+    }
+
+    .progress-pct {
+      font-size: .82rem;
+      color: var(--accent2);
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    .progress-bar {
+      height: 7px;
+      border-radius: 99px;
+      background: var(--border);
+      overflow: hidden
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0%;
+      transition: width .3s ease
+    }
+
+    .log-box {
+      margin-top: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      height: 160px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .76rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .log-box .ok {
+      color: var(--success)
+    }
+
+    .log-box .err {
+      color: var(--error)
+    }
+
+    .log-box .warn {
+      color: var(--warn)
+    }
+
+    /* ─ Custom Asset Slots ─ */
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .asset-slot {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      transition: all 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .asset-slot:hover {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.05);
+    }
+
+    .asset-slot.has-file {
+      border-color: var(--accent2);
+      background: rgba(0, 212, 170, 0.05);
+    }
+
+    .asset-icon {
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+    }
+
+    .asset-name {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      display: block;
+    }
+
+    .asset-desc {
+      font-size: 0.62rem;
+      color: var(--muted);
+      display: block;
+      margin-top: 2px;
+      opacity: 0.7;
+    }
+
+    .asset-preview {
+      width: 100%;
+      height: 60px;
+      object-fit: contain;
+      border-radius: 4px;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .asset-slot.has-file .asset-preview {
+      display: block;
+    }
+
+    .asset-slot.has-file .asset-icon {
+      display: none;
+    }
+
+    .asset-slot input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 1;
+    }
+
+    .asset-controls {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      display: none;
+      gap: 4px;
+      z-index: 10;
+    }
+
+    .asset-slot.has-file .asset-controls {
+      display: flex;
+    }
+
+    .asset-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .asset-btn:hover {
+      background: var(--card);
+      color: var(--accent2);
+      border-color: var(--accent2);
+    }
+
+    .asset-btn.del:hover {
+      color: var(--error);
+      border-color: var(--error);
+    }
+
+    /* ─ Result ─ */
+    .result-box {
+      background: rgba(0, 212, 170, .07);
+      border: 1px solid rgba(0, 212, 170, .28);
+      border-radius: 12px;
+      padding: 22px;
+      text-align: center;
+      display: none;
+      margin-top: 20px;
+    }
+
+    .result-icon {
+      font-size: 2.8rem;
+      margin-bottom: 8px
+    }
+
+    .result-name {
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent2);
+      margin-bottom: 4px
+    }
+
+    .result-sub {
+      color: var(--muted);
+      font-size: .82rem;
+      margin-bottom: 18px
+    }
+
+    .btn-dl {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 28px;
+      background: linear-gradient(135deg, var(--accent2), #00a882);
+      color: #0d0f1a;
+      border: none;
+      border-radius: 10px;
+      font-size: .9rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity .2s, transform .15s;
+    }
+
+    .btn-dl:hover {
+      opacity: .9;
+      transform: translateY(-1px)
+    }
+
+    /* ─ Error ─ */
+    .error-box {
+      background: rgba(255, 107, 107, .07);
+      border: 1px solid rgba(255, 107, 107, .28);
+      border-radius: 12px;
+      padding: 18px;
+      display: none;
+      margin-top: 20px;
+    }
+
+    .error-title {
+      color: var(--error);
+      font-weight: 600;
+      margin-bottom: 5px
+    }
+
+    .error-msg {
+      color: var(--muted);
+      font-size: .85rem
+    }
+
+    /* ─ Info strip ─ */
+    .info-strip {
+      width: 100%;
+      max-width: 700px;
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap
+    }
+
+    .info-item {
+      flex: 1;
+      min-width: 150px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px
+    }
+
+    .info-item-icon {
+      font-size: 1.2rem
+    }
+
+    .info-item-text h4 {
+      font-size: .82rem;
+      font-weight: 600;
+      margin-bottom: 3px
+    }
+
+    .info-item-text p {
+      font-size: .76rem;
+      color: var(--muted);
+      line-height: 1.5
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎮</div>
+      <h1>PSX PBP Converter</h1>
+    </div>
+    <p class="subtitle">PlayStation CUE+BIN → PSP/PS3용 EBOOT.PBP &nbsp;·&nbsp; 브라우저에서 직접 변환</p>
+  </header>
+
+  <div class="card">
+
+    <!-- 1. 게임 파일 (멀티 디스크 지원) -->
+    <div class="section">
+      <div class="section-label">① 게임 이미지 (CUE + BIN)</div>
+      <div id="disc-slots-container" class="disc-slots">
+        <!-- slots will be injected here via JS -->
+      </div>
+      <button class="add-disc-btn" id="add-disc-btn" onclick="addDiscSlot()" style="display: none;">
+        <span>➕</span> 디스크 추가 (최대 5장)
+      </button>
+    </div>
+
+    <!-- 2. Base PBP -->
+    <div class="section">
+      <div class="section-label">② Base PBP <span style="color:var(--muted);font-weight:400;text-transform:none">(PSP 커널
+          포함 EBOOT.PBP)</span></div>
+      <div class="dropzone" id="dz-base" style="padding: 24px 16px;">
+        <input type="file" id="fi-base" accept=".pbp" />
+        <div class="dz-icon" style="font-size: 1.8rem;">💾</div>
+        <div class="dz-title" style="font-size: 0.95rem;">Base EBOOT.PBP 등록</div>
+        <div class="dz-sub" style="font-size: 0.75rem;"><span class="badge">.pbp</span> 필수</div>
+      </div>
+      <div id="base-info" style="margin-top:10px;display:none"></div>
+    </div>
+
+    <!-- 3. 커스텀 리소스 (선택) -->
+    <div class="section">
+      <div class="section-label">③ 커스텀 리소스 (선택) <span style="color:var(--muted);font-weight:400;text-transform:none">미등록
+          시 Base PBP 것을 사용합니다</span></div>
+      <div class="asset-grid">
+        <!-- ICON0 -->
+        <div class="asset-slot" id="as-icon0" title="화면에서 게임을 선택할 때 표시되는 메인 아이콘입니다. (144x80 PNG)">
+          <div class="asset-controls">
+            <button class="asset-btn" title="다운로드" onclick="downloadAsset('icon0', event)">⬇</button>
+            <button class="asset-btn del" title="삭제" onclick="removeAsset('icon0', event)">✕</button>
+          </div>
+          <input type="file" accept="image/png" onchange="handleAsset('icon0', this.files[0])" />
+          <div class="asset-icon">🖼️</div>
+          <img class="asset-preview" id="prev-icon0" />
+          <span class="asset-name">ICON0 (메인 아이콘)</span>
+          <span class="asset-desc">144x80 px</span>
+        </div>
+        <!-- PIC1 -->
+        <div class="asset-slot" id="as-pic1" title="게임을 선택했을 때 화면 전체에 나타나는 배경 이미지입니다. (480x272 PNG)">
+          <div class="asset-controls">
+            <button class="asset-btn" title="다운로드" onclick="downloadAsset('pic1', event)">⬇</button>
+            <button class="asset-btn del" title="삭제" onclick="removeAsset('pic1', event)">✕</button>
+          </div>
+          <input type="file" accept="image/png" onchange="handleAsset('pic1', this.files[0])" />
+          <div class="asset-icon">🏞️</div>
+          <img class="asset-preview" id="prev-pic1" />
+          <span class="asset-name">PIC1 (배경화면)</span>
+          <span class="asset-desc">480x272 px</span>
+        </div>
+        <!-- PIC0 -->
+        <div class="asset-slot" id="as-pic0" title="배경 위에 겹쳐서 나타나는 게임 정보창 이미지입니다. (310x180 PNG)">
+          <div class="asset-controls">
+            <button class="asset-btn" title="다운로드" onclick="downloadAsset('pic0', event)">⬇</button>
+            <button class="asset-btn del" title="삭제" onclick="removeAsset('pic0', event)">✕</button>
+          </div>
+          <input type="file" accept="image/png" onchange="handleAsset('pic0', this.files[0])" />
+          <div class="asset-icon">💾</div>
+          <img class="asset-preview" id="prev-pic0" />
+          <span class="asset-name">PIC0 (정보창)</span>
+          <span class="asset-desc">310x180 px</span>
+        </div>
+        <!-- ICON1 -->
+        <div class="asset-slot" id="as-icon1" title="아이콘에 커서를 올렸을 때 재생되는 애니메이션 파일입니다. (.PMF)">
+          <div class="asset-controls">
+            <button class="asset-btn" title="다운로드" onclick="downloadAsset('icon1', event)">⬇</button>
+            <button class="asset-btn del" title="삭제" onclick="removeAsset('icon1', event)">✕</button>
+          </div>
+          <input type="file" accept=".pmf" onchange="handleAsset('icon1', this.files[0])" />
+          <div class="asset-icon">🎞️</div>
+          <div class="asset-preview" id="prev-icon1"
+            style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1.2rem;">✨
+          </div>
+          <span class="asset-name">ICON1 (애니메)</span>
+          <span class="asset-desc">PMF 형식</span>
+        </div>
+        <!-- SND0 -->
+        <div class="asset-slot" id="as-snd0" title="게임을 선택했을 때 재생되는 배경 음악입니다. (.AT3)">
+          <div class="asset-controls">
+            <button class="asset-btn" title="다운로드" onclick="downloadAsset('snd0', event)">⬇</button>
+            <button class="asset-btn del" title="삭제" onclick="removeAsset('snd0', event)">✕</button>
+          </div>
+          <input type="file" accept=".at3" onchange="handleAsset('snd0', this.files[0])" />
+          <div class="asset-icon">🎵</div>
+          <div class="asset-preview" id="prev-snd0"
+            style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1.2rem;">🎶
+          </div>
+          <span class="asset-name">SND0 (배경음)</span>
+          <span class="asset-desc">AT3 형식</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 4. 메타데이터 -->
+    <div class="section">
+      <div class="section-label">④ 게임 정보 (선택)</div>
+      <div class="input-group">
+        <label>게임 제목</label>
+        <input type="text" id="game-title" placeholder="예: Final Fantasy VII" maxlength="128" />
+      </div>
+      <div class="input-group">
+        <label>Game ID</label>
+        <input type="text" id="game-id" placeholder="예: SCUS-94163" maxlength="10" />
+      </div>
+      <div class="input-group" style="margin-bottom:0">
+        <label>압축 레벨 (0 = 무압축, 빠름 / 9 = 최대, 느림)</label>
+        <div class="comp-row" id="comp-row"></div>
+      </div>
+    </div>
+
+    <!-- 변환 버튼 및 상태 안내 -->
+    <div id="ready-status" style="margin-top:20px; font-size:0.85rem; color:var(--muted); text-align:center;">
+      대기 중: 게임 이미지와 Base PBP를 등록해주세요.
+    </div>
+    <button class="btn-primary" id="convert-btn" onclick="startConvert()" disabled style="margin-top:10px;">⚡ PBP로
+      변환</button>
+    <button class="btn-secondary" id="reset-btn" onclick="resetAll()">↩ 처음으로</button>
+
+    <!-- 진행 -->
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-head">
+        <span class="progress-label" id="progress-label">변환 중...</span>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="log-box" id="log-box"></div>
+    </div>
+
+    <!-- 결과 -->
+    <div class="result-box" id="result-box">
+      <div class="result-icon">✅</div>
+      <div class="result-name" id="result-name">EBOOT.PBP</div>
+      <div class="result-sub">변환 완료! 아래에서 다운로드하세요.</div>
+      <button class="btn-dl" id="dl-btn">⬇ EBOOT.PBP 다운로드</button>
+    </div>
+
+    <!-- 오류 -->
+    <div class="error-box" id="error-box">
+      <div class="error-title">❌ 변환 실패</div>
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+
+  </div>
+
+  <div class="info-strip">
+    <div class="info-item">
+      <div class="info-item-icon">🌐</div>
+      <div class="info-item-text">
+        <h4>100% 브라우저</h4>
+        <p>서버 없이 로컬에서 처리<br>파일이 외부로 전송되지 않음</p>
+      </div>
+    </div>
+    <div class="info-item">
+      <div class="info-item-icon">💽</div>
+      <div class="info-item-text">
+        <h4>멀티트랙 지원</h4>
+        <p>오디오 트랙 포함 게임<br>자동 BIN 병합</p>
+      </div>
+    </div>
+    <div class="info-item">
+      <div class="info-item-icon">🕹️</div>
+      <div class="info-item-text">
+        <h4>호환 기기</h4>
+        <p>PSP · PS3 · DuckStation<br>RetroArch · ePSXe</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    // ════════════════════════════════════════════════════════════
+    // 압축 레벨 및 상태 관리
+    // ════════════════════════════════════════════════════════════
+    let compressionLevel = 5;
+    let discSlots = [{ id: 0, files: [] }];
+    let basePbpFile = null;
+    let resultBlob = null;
+
+    const compRow = document.getElementById('comp-row');
+    for (let i = 0; i <= 9; i++) {
+      const b = document.createElement('button');
+      b.className = 'comp-btn' + (i === 5 ? ' active' : '');
+      b.textContent = i;
+      b.onclick = () => {
+        compressionLevel = i;
+        compRow.querySelectorAll('.comp-btn').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+      };
+      compRow.appendChild(b);
+    }
+
+    function addDiscSlot() {
+      if (discSlots.length >= 5) return alert('최대 5장까지만 지원됩니다.');
+      const newId = Math.max(0, ...discSlots.map(s => s.id)) + 1;
+      discSlots.push({ id: newId, files: [] });
+      renderDiscSlots();
+      checkReady();
+    }
+
+    function removeDiscSlot(id) {
+      if (discSlots.length <= 1) return;
+      discSlots = discSlots.filter(s => s.id !== id);
+      renderDiscSlots();
+      checkReady();
+    }
+
+    function renderDiscSlots() {
+      const container = document.getElementById('disc-slots-container');
+      container.innerHTML = '';
+
+      discSlots.forEach((slot, index) => {
+        const div = document.createElement('div');
+        div.className = 'disc-slot';
+        div.innerHTML = `
+          <div class="disc-slot-header">
+            <div class="disc-slot-title">💿 디스크 ${index + 1}</div>
+            ${discSlots.length > 1 ? `<button class="remove-disc-btn" onclick="removeDiscSlot(${slot.id})">제거</button>` : ''}
+          </div>
+          <div class="dropzone ${slot.files.length ? 'has-files' : ''}" id="dz-${slot.id}" style="padding: 24px 16px;">
+            <input type="file" multiple accept=".cue,.bin" onchange="handleSlotFiles(${slot.id}, this.files)" />
+            <div class="dz-icon" style="font-size: 1.8rem;">📀</div>
+            <div class="dz-title" style="font-size: 0.9rem;">${slot.files.length ? '등록 완료' : 'CUE + BIN 등록'}</div>
+            <div class="dz-sub" style="font-size: 0.75rem;">
+              ${slot.files.length ? `${slot.files.length}개 파일` : '.cue / .bin'}
+            </div>
+          </div>
+          <div id="list-${slot.id}" style="margin-top:8px; font-size:0.75rem; font-family:'JetBrains Mono', monospace; max-height: 80px; overflow-y: auto;">
+            ${slot.files.map(f => `<div><span style="color:var(--muted)">[${f.name.split('.').pop().toUpperCase()}]</span> ${f.name}</div>`).join('')}
+          </div>
+        `;
+
+        const dz = div.querySelector(`#dz-${slot.id}`);
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+        dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+        dz.addEventListener('drop', e => {
+          e.preventDefault();
+          dz.classList.remove('dragover');
+          handleSlotFiles(slot.id, e.dataTransfer.files);
+        });
+
+        container.appendChild(div);
+      });
+
+      if (discSlots[0].files.length) tryAutoTitle();
+    }
+
+    function handleSlotFiles(slotId, fileList) {
+      const files = Array.from(fileList).filter(f => /\.(cue|bin)$/i.test(f.name));
+      if (!files.length) return;
+      const slot = discSlots.find(s => s.id === slotId);
+      if (slot) slot.files = files;
+      renderDiscSlots();
+      checkReady();
+    }
+
+    function formatSize(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+      return (n / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function tryAutoTitle() {
+      const firstDisc = discSlots[0];
+      const cueFile = firstDisc.files.find(f => /\.cue$/i.test(f.name));
+      if (cueFile && !document.getElementById('game-title').value) {
+        document.getElementById('game-title').value = cueFile.name.replace(/\.cue$/i, '');
+      }
+    }
+
+    // ── Base PBP 드롭존 (공통) ───────────────────────────
+    const dzBase = document.getElementById('dz-base');
+    const fiBase = document.getElementById('fi-base');
+    dzBase.addEventListener('dragover', e => { e.preventDefault(); dzBase.classList.add('dragover'); });
+    dzBase.addEventListener('dragleave', () => dzBase.classList.remove('dragover'));
+    dzBase.addEventListener('drop', e => { e.preventDefault(); dzBase.classList.remove('dragover'); handleBasePbp(e.dataTransfer.files[0]); });
+    fiBase.addEventListener('change', () => handleBasePbp(fiBase.files[0]));
+
+    async function handleBasePbp(file) {
+      if (!file || !/\.pbp$/i.test(file.name)) return alert('.pbp 파일을 선택해주세요.');
+      basePbpFile = file;
+
+      const el = document.getElementById('base-info');
+      el.style.display = 'block';
+      dzBase.classList.add('has-files');
+
+      try {
+        log('Base PBP 분석 및 리소스 추출 시작...', '');
+        const res = await readBasePbp(file);
+
+        // 버전 표시 (0x10000: v1.0 신버전, 0x0: v0.0 구버전)
+        const verStr = res.version === 0x10000 ? 'v1.0 (신버전)' : (res.version === 0 ? 'v0.0 (구버전)' : `v${(res.version >> 16)}.${(res.version & 0xFFFF)}`);
+
+        el.innerHTML = `
+          <div class="file-item">
+            <span class="ext ext-pbp">.PBP</span>
+            <div style="flex:1">
+              <div style="display:flex; justify-content:space-between">
+                <span>${file.name}</span>
+                <span class="file-size">${formatSize(file.size)}</span>
+              </div>
+              <div style="font-size:0.75rem; color:var(--accent2); margin-top:2px; font-weight:600">형식: ${verStr}</div>
+            </div>
+          </div>`;
+
+        // SFO에서 정보 추출 및 자동 완성
+        if (res.sfo && res.sfo.length > 0) {
+          const sfoData = parseSFO(res.sfo);
+          if (sfoData.TITLE && !document.getElementById('game-title').value) {
+            document.getElementById('game-title').value = sfoData.TITLE;
+            log(`- 게임 제목 자동 입력: ${sfoData.TITLE}`, '');
+          }
+          if (sfoData.DISC_ID && (!document.getElementById('game-id').value || document.getElementById('game-id').value === 'SLUS-00000')) {
+            document.getElementById('game-id').value = sfoData.DISC_ID;
+            log(`- Game ID 자동 입력: ${sfoData.DISC_ID}`, '');
+          }
+        }
+
+        const types = ['icon0', 'icon1', 'pic0', 'pic1', 'snd0'];
+        let foundCount = 0;
+
+        for (const type of types) {
+          const data = res[type];
+          if (data && data.length > 0) {
+            log(`- ${type.toUpperCase()} 추출 성공 (${formatSize(data.length)})`, '');
+
+            // 실제 헤더 확인 (PNG: 89 50 4E 47)
+            let mime = 'application/octet-stream';
+            if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4E && data[3] === 0x47) {
+              mime = 'image/png';
+            } else if (type === 'snd0') {
+              mime = 'audio/atrac3';
+            } else if (type === 'icon1') {
+              mime = 'application/x-pmf';
+            }
+
+            const blob = new Blob([data], { type: mime });
+            const f = new File([blob], `${type.toUpperCase()}.${mime === 'image/png' ? 'PNG' : 'BIN'}`, { type: mime });
+            handleAsset(type, f);
+            foundCount++;
+          }
+        }
+
+        if (foundCount === 0) {
+          log('⚠ Base PBP 내부에 추출할 수 있는 시각적 리소스가 없습니다.', 'warn');
+        } else {
+          log(`✅ ${foundCount}개의 리소스를 자동으로 불러왔습니다.`, 'ok');
+        }
+      } catch (err) {
+        console.error(err);
+        log(`❌ 리소스 추출 실패: ${err.message}`, 'err');
+      }
+
+      checkReady();
+    }
+
+    function checkReady() {
+      const hasBase = !!basePbpFile;
+      const anyDiscHasFile = discSlots.some(slot => slot.files.length > 0);
+
+      const missingDiscs = discSlots.filter(slot => {
+        if (!anyDiscHasFile && hasBase) return false; // 리팩 모드: 디스크 없어도 OK
+        const hasCue = slot.files.some(f => /\.cue$/i.test(f.name));
+        const hasBin = slot.files.some(f => /\.bin$/i.test(f.name));
+        return !(hasCue && hasBin);
+      });
+
+      const btn = document.getElementById('convert-btn');
+      const statusEl = document.getElementById('ready-status');
+
+      let msg = "";
+      if (anyDiscHasFile && missingDiscs.length > 0) {
+        msg = `⚠ 디스크 ${missingDiscs.map(s => discSlots.indexOf(s) + 1).join(', ')}번에 파일이 부족합니다.`;
+      } else if (!hasBase) {
+        msg = "⚠ Base PBP 파일을 등록해주세요.";
+      } else if (!anyDiscHasFile && hasBase) {
+        msg = "✅ 리소스를 교체하여 리팩(Repack)할 준비가 되었습니다!";
+        statusEl.style.color = "var(--accent2)";
+      } else {
+        msg = "✅ 모든 준비가 완료되었습니다!";
+        statusEl.style.color = "var(--accent2)";
+      }
+
+      const isReady = (hasBase && !anyDiscHasFile) || (hasBase && anyDiscHasFile && missingDiscs.length === 0);
+
+      if (isReady) {
+        btn.disabled = false;
+        statusEl.innerText = msg;
+      } else {
+        btn.disabled = true;
+        statusEl.innerText = msg;
+        statusEl.style.color = "var(--muted)";
+      }
+
+      const addBtn = document.getElementById('add-disc-btn');
+      addBtn.style.display = (discSlots.length < 5) ? 'flex' : 'none';
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 로그
+    // ════════════════════════════════════════════════════════════
+    const logBox = document.getElementById('log-box');
+    function log(msg, cls) {
+      const p = document.createElement('p');
+      if (cls) p.className = cls;
+      p.textContent = msg;
+      logBox.appendChild(p);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+    function setProgress(pct, label) {
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-pct').textContent = pct + '%';
+      if (label) document.getElementById('progress-label').textContent = label;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // CUE 파서
+    // ════════════════════════════════════════════════════════════
+    function parseCue(text) {
+      const lines = text.split(/\r?\n/);
+      const result = { fileEntries: [] };
+      let currentFile = null;
+      let currentTrack = null;
+      for (const raw of lines) {
+        const line = raw.trim();
+        let m;
+        if ((m = line.match(/^FILE\s+"(.+?)"\s+(\S+)/i))) {
+          currentFile = { fileName: m[1], fileType: m[2], tracks: [] };
+          result.fileEntries.push(currentFile);
+        } else if ((m = line.match(/^TRACK\s+(\d+)\s+(\S+)/i))) {
+          currentTrack = { number: parseInt(m[1]), dataType: m[2].toUpperCase(), indexes: [] };
+          if (currentFile) currentFile.tracks.push(currentTrack);
+        } else if ((m = line.match(/^INDEX\s+(\d+)\s+(\d+):(\d+):(\d+)/i))) {
+          if (currentTrack) currentTrack.indexes.push({
+            number: parseInt(m[1]),
+            mm: parseInt(m[2]), ss: parseInt(m[3]), ff: parseInt(m[4])
+          });
+        }
+      }
+      return result;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // TOC 생성 (CueFileExtensions.GetTOCData 포팅)
+    // ════════════════════════════════════════════════════════════
+    function toBCD(v) {
+      return ((Math.floor(v / 10) << 4) | (v % 10));
+    }
+
+    function positionFromFrames(totalFrames) {
+      const f = totalFrames % 75;
+      const s = Math.floor(totalFrames / 75) % 60;
+      const m = Math.floor(totalFrames / 75 / 60);
+      return { mm: m, ss: s, ff: f };
+    }
+
+    function addPos(pos, frames) {
+      const total = pos.mm * 75 * 60 + pos.ss * 75 + pos.ff + frames;
+      return positionFromFrames(total);
+    }
+
+    function getTrackTypeByte(dataTypeStr) {
+      const s = dataTypeStr.toUpperCase();
+      if (s.includes('AUDIO') || s === 'AUDIO') return 0x01;
+      return 0x41; // data
+    }
+
+    function buildTOC(cue, isoSizeBytes) {
+      const allTracks = cue.fileEntries.flatMap(fe => fe.tracks);
+      const totalFrames = Math.ceil(isoSizeBytes / 2352);
+      const endPos = positionFromFrames(totalFrames);
+      const entryCount = allTracks.length + 3;
+      const toc = new Uint8Array(0xA * entryCount);
+      let offset = 0;
+
+      function writeEntry(type, ctl, mm, ss, ff, rmm, rss, rff) {
+        toc[offset + 0] = type;
+        toc[offset + 1] = 0x00;
+        toc[offset + 2] = ctl;
+        toc[offset + 3] = mm; toc[offset + 4] = ss; toc[offset + 5] = ff;
+        toc[offset + 6] = 0x00;
+        toc[offset + 7] = rmm; toc[offset + 8] = rss; toc[offset + 9] = rff;
+        offset += 0xA;
+      }
+
+      const firstType = getTrackTypeByte(allTracks[0].dataType);
+      const lastType = getTrackTypeByte(allTracks[allTracks.length - 1].dataType);
+
+      // A0: first track
+      writeEntry(firstType, 0xA0, 0, 0, 0, toBCD(allTracks[0].number), toBCD(0x20), 0);
+      // A1: last track
+      writeEntry(lastType, 0xA1, 0, 0, 0, toBCD(allTracks[allTracks.length - 1].number), 0, 0);
+      // A2: lead-out
+      writeEntry(0x01, 0xA2, 0, 0, 0, toBCD(endPos.mm), toBCD(endPos.ss), toBCD(endPos.ff));
+
+      for (const track of allTracks) {
+        const idx1 = track.indexes.find(x => x.number === 1) || track.indexes[0];
+        const absPos = addPos(idx1, 0);
+        const relPos = addPos(idx1, 2 * 75); // +2 sec lead-in
+        writeEntry(
+          getTrackTypeByte(track.dataType),
+          toBCD(track.number),
+          toBCD(absPos.mm), toBCD(absPos.ss), toBCD(absPos.ff),
+          toBCD(relPos.mm), toBCD(relPos.ss), toBCD(relPos.ff)
+        );
+      }
+
+      return toc;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // SFO 빌더 (SFOBuilder.cs 포팅)
+    // ════════════════════════════════════════════════════════════
+    const SFO_DEFS = {
+      BOOTABLE: { maxLen: 4, type: 0x0404 },
+      CATEGORY: { maxLen: 4, type: 0x0204 },
+      DISC_ID: { maxLen: 16, type: 0x0204 },
+      DISC_VERSION: { maxLen: 8, type: 0x0204 },
+      LICENSE: { maxLen: 512, type: 0x0204 },
+      PARENTAL_LEVEL: { maxLen: 4, type: 0x0404 },
+      PSP_SYSTEM_VER: { maxLen: 8, type: 0x0204 },
+      REGION: { maxLen: 4, type: 0x0404 },
+      TITLE: { maxLen: 128, type: 0x0204 },
+    };
+
+    function buildSFO(entries) {
+      const enc = new TextEncoder();
+      // Filter valid entries
+      const valid = entries.filter(e => {
+        if (e.value === null || e.value === undefined) return false;
+        if (typeof e.value === 'string' && e.value.trim() === '') return false;
+        return true;
+      });
+
+      const headerSz = 20;
+      const indexTableSz = valid.length * 16;
+      let keyTableSz = valid.reduce((s, e) => s + e.key.length + 1, 0);
+      let keyPadding = 0;
+      if (keyTableSz % 4 !== 0) keyPadding = 4 - (keyTableSz % 4);
+
+      const keyTableOffset = headerSz + indexTableSz;
+      const dataTableOffset = keyTableOffset + keyTableSz + keyPadding;
+      const dataSize = valid.reduce((s, e) => s + SFO_DEFS[e.key].maxLen, 0);
+      const totalSize = dataTableOffset + dataSize;
+
+      const buf = new ArrayBuffer(totalSize);
+      const dv = new DataView(buf);
+      const u8 = new Uint8Array(buf);
+
+      // Header
+      dv.setUint32(0, 0x46535000, true); // '\0PSF'
+      dv.setUint32(4, 0x00000101, true); // version
+      dv.setUint32(8, keyTableOffset, true);
+      dv.setUint32(12, dataTableOffset, true);
+      dv.setUint32(16, valid.length, true);
+
+      let keyOff = 0;
+      let dataOff = 0;
+      let idxBase = headerSz;
+
+      for (const e of valid) {
+        const def = SFO_DEFS[e.key];
+        const isInt = typeof e.value === 'number';
+        const strlen = isInt ? 4 : (enc.encode(e.value).length + 1);
+
+        // Index entry (16 bytes)
+        dv.setUint16(idxBase + 0, keyOff, true); // key offset
+        dv.setUint16(idxBase + 2, def.type, true); // format
+        dv.setUint32(idxBase + 4, strlen, true); // length
+        dv.setUint32(idxBase + 8, def.maxLen, true); // max length
+        dv.setUint32(idxBase + 12, dataOff, true); // data offset
+        idxBase += 16;
+
+        // Key table
+        const keyBytes = enc.encode(e.key);
+        u8.set(keyBytes, keyTableOffset + keyOff);
+        keyOff += e.key.length + 1;
+
+        // Data table
+        if (isInt) {
+          dv.setUint32(dataTableOffset + dataOff, e.value, true);
+        } else {
+          const vBytes = enc.encode(e.value);
+          u8.set(vBytes, dataTableOffset + dataOff);
+        }
+        dataOff += def.maxLen;
+      }
+
+      return u8;
+    }
+
+    function parseSFO(u8) {
+      const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+      if (dv.getUint32(0, true) !== 0x46535000) return {};
+      const keyTableOff = dv.getUint32(8, true);
+      const dataTableOff = dv.getUint32(12, true);
+      const count = dv.getUint32(16, true);
+      const res = {};
+      const dec = new TextDecoder();
+      for (let i = 0; i < count; i++) {
+        const off = 20 + i * 16;
+        const knOff = dv.getUint16(off, true);
+        const format = dv.getUint16(off + 2, true);
+        const len = dv.getUint32(off + 4, true);
+        const dataOff = dv.getUint32(off + 12, true);
+
+        // Key name
+        let knEnd = keyTableOff + knOff;
+        while (u8[knEnd] !== 0) knEnd++;
+        const key = dec.decode(u8.slice(keyTableOff + knOff, knEnd));
+
+        // Value
+        if (format === 0x0204) { // String
+          let dEnd = dataTableOff + dataOff;
+          while (dEnd < dataTableOff + dataOff + len && u8[dEnd] !== 0) dEnd++;
+          res[key] = dec.decode(u8.slice(dataTableOff + dataOff, dEnd));
+        } else if (format === 0x0404) { // Int
+          res[key] = dv.getUint32(dataTableOff + dataOff, true);
+        }
+      }
+      return res;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // data1 / data2 템플릿 (Popstation.Data.cs — 3616 + 1024 bytes)
+    // ════════════════════════════════════════════════════════════
+    // data1: 3616바이트 (처음 12바이트: GameID 오버레이 자리, 오프셋 1024: TOC)
+    // data2: 1040바이트 (오프셋 8: GameTitle 오버레이 자리)
+    // 실제 hex는 모두 0x00으로 구성, GameID/TOC 자리만 커스텀으로 채움
+    const DATA1_SIZE = 3712; // 0xE80 — padded to 0x400 boundary
+    const DATA2_SIZE = 1040; // 0x410
+
+    function buildData1(gameId, tocData) {
+      const buf = new Uint8Array(DATA1_SIZE);
+      // GameID 오버레이: byte[1..4]=첫4자, byte[6..10]=뒤5자  (원본 포맷: "_SCUS-94163\0")
+      const idBytes = new TextEncoder().encode(gameId.replace('-', ''));
+      // 실제 psxpackager는 ASCII GameID를 data1[1..4]와 data1[6..10]에 씀
+      if (idBytes.length >= 4) {
+        buf[1] = idBytes[0]; buf[2] = idBytes[1]; buf[3] = idBytes[2]; buf[4] = idBytes[3];
+      }
+      if (idBytes.length >= 9) {
+        buf[6] = idBytes[4]; buf[7] = idBytes[5]; buf[8] = idBytes[6];
+        buf[9] = idBytes[7]; buf[10] = idBytes[8];
+      }
+      // TOC at offset 1024
+      if (tocData) buf.set(tocData.slice(0, Math.min(tocData.length, DATA1_SIZE - 1024)), 1024);
+      return buf;
+    }
+
+    function buildData2(gameTitle) {
+      const buf = new Uint8Array(DATA2_SIZE);
+      const titleBytes = new TextEncoder().encode(gameTitle);
+      buf.set(titleBytes.slice(0, Math.min(titleBytes.length, DATA2_SIZE - 8)), 8);
+      return buf;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 헬퍼: DataView write helpers
+    // ════════════════════════════════════════════════════════════
+    function writeUint32LE(arr, offset, value) {
+      arr[offset] = (value) & 0xFF;
+      arr[offset + 1] = (value >> 8) & 0xFF;
+      arr[offset + 2] = (value >> 16) & 0xFF;
+      arr[offset + 3] = (value >> 24) & 0xFF;
+    }
+    function readUint32LE(arr, offset) {
+      return ((arr[offset]) | (arr[offset + 1] << 8) | (arr[offset + 2] << 16) | (arr[offset + 3] << 24)) >>> 0;
+    }
+    function concatU8(...arrays) {
+      const total = arrays.reduce((s, a) => s + a.length, 0);
+      const out = new Uint8Array(total);
+      let pos = 0;
+      for (const a of arrays) { out.set(a, pos); pos += a.length; }
+      return out;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 상태: 커스텀 에셋
+    // ════════════════════════════════════════════════════════════
+    let customAssets = {
+      icon0: null, pic1: null, pic0: null, snd0: null, icon1: null
+    };
+
+    function handleAsset(type, file) {
+      if (!file) return;
+      customAssets[type] = file;
+
+      const slot = document.getElementById(`as-${type}`);
+      if (!slot) return;
+
+      slot.classList.add('has-file');
+
+      const previewEl = document.getElementById(`prev-${type}`);
+      if (previewEl) {
+        if (file.type.startsWith('image/')) {
+          if (previewEl.tagName === 'IMG') {
+            const url = URL.createObjectURL(file);
+            previewEl.src = url;
+            previewEl.onload = () => URL.revokeObjectURL(url);
+          }
+        } else {
+          // SND0, ICON1 등 이미지가 아닌 경우
+          if (previewEl.tagName !== 'IMG') {
+            previewEl.style.display = 'flex';
+          }
+        }
+      }
+      log(`리소스 등록됨: ${type.toUpperCase()}`, 'ok');
+    }
+
+    function removeAsset(type, event) {
+      if (event) event.stopPropagation();
+      customAssets[type] = null;
+
+      const slot = document.getElementById(`as-${type}`);
+      if (slot) {
+        slot.classList.remove('has-file');
+        const img = slot.querySelector('img');
+        if (img) img.src = '';
+        const prev = slot.querySelector('.asset-preview:not(img)');
+        if (prev) prev.style.display = 'none';
+
+        // input value 초기화 (같은 파일 재업로드 가능하게 함)
+        const input = slot.querySelector('input[type="file"]');
+        if (input) input.value = '';
+      }
+      log(`리소스 제거됨: ${type.toUpperCase()}`, '');
+    }
+
+    function downloadAsset(type, event) {
+      if (event) event.stopPropagation();
+      const file = customAssets[type];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // Base PBP Reader (모든 기본 리소스 추출)
+    // ════════════════════════════════════════════════════════════
+    async function readBasePbp(file) {
+      const buf = await file.arrayBuffer();
+      const u8 = new Uint8Array(buf);
+      const dv = new DataView(buf);
+
+      const magic = dv.getUint32(0, true);
+      if (magic !== 0x50425000) throw new Error('Base PBP 파일의 매직 넘버가 올바르지 않습니다.');
+
+      const off = [];
+      for (let i = 0; i < 10; i++) off.push(dv.getUint32(i * 4, true));
+      // off: [magic, ver, sfo, icon0, icon1, pic0, pic1, snd0, psp, psar]
+
+      const getSection = (startIdx, endIdx) => {
+        const start = off[startIdx], end = off[endIdx];
+        return (end > start) ? u8.slice(start, end) : new Uint8Array(0);
+      };
+
+      const res = {
+        version: off[1], // 버전 정보 (0x00010000 등)
+        sfo: getSection(2, 3),
+        icon0: getSection(3, 4),
+        icon1: getSection(4, 5),
+        pic0: getSection(5, 6),
+        pic1: getSection(6, 7),
+        snd0: getSection(7, 8),
+        dataPsp: getSection(8, 9),
+        psar: u8.slice(off[9]) // PSAR부터 끝까지 전체 추출
+      };
+
+      // STARTDAT 추출
+      const psarOff = off[9];
+      const xOffset = dv.getUint32(psarOff + 12, true);
+      const startdatOff = xOffset + 0x50000;
+
+      if (startdatOff < u8.length) {
+        const startdatMagic = String.fromCharCode(...u8.slice(startdatOff, startdatOff + 8));
+        if (startdatMagic === 'STARTDAT') {
+          res.startdat = u8.slice(startdatOff, u8.length);
+        }
+      }
+
+      return res;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 핵심: BIN 병합 (멀티트랙 지원)
+    // ════════════════════════════════════════════════════════════
+    async function mergeBins(cue, files) {
+      const fileMap = new Map();
+      files.forEach(f => fileMap.set(f.name.toLowerCase(), f));
+
+      const chunks = [];
+      let currentFrame = 0;
+      const mergedTracks = [];
+
+      for (const fe of cue.fileEntries) {
+        const key = fe.fileName.split(/[/\\]/).pop().toLowerCase();
+        const file = fileMap.get(key);
+        if (!file) throw new Error(`BIN 파일을 찾을 수 없습니다: ${fe.fileName}`);
+
+        const buf = await file.arrayBuffer();
+        chunks.push(new Uint8Array(buf));
+        const frames = Math.floor(buf.byteLength / 2352);
+
+        for (const track of fe.tracks) {
+          const adjustedIndexes = track.indexes.map(idx => {
+            const totalF = idx.mm * 75 * 60 + idx.ss * 75 + idx.ff + currentFrame;
+            const pos = positionFromFrames(totalF);
+            return { ...idx, mm: pos.mm, ss: pos.ss, ff: pos.ff };
+          });
+          mergedTracks.push({ ...track, indexes: adjustedIndexes });
+        }
+        currentFrame += frames;
+      }
+
+      return { mergedBin: concatU8(...chunks), mergedTracks };
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 멀티 디스크 PBP 빌더
+    // ════════════════════════════════════════════════════════════
+    async function buildMultiDiscPbp(discsData, gameId, gameTitle, basePbpData, onProgress) {
+      const BLOCK_SIZE = 0x9300;
+      const PBPMAGIC = 0x50425000;
+      const level = compressionLevel;
+
+      log(`멀티 디스크 변환 시작 (${discsData.length}장)`, '');
+
+      onProgress(2, 'SFO 생성 중...');
+      const sfo = buildSFO([
+        { key: 'BOOTABLE', value: 1 },
+        { key: 'CATEGORY', value: 'ME' },
+        { key: 'DISC_ID', value: gameId },
+        { key: 'DISC_VERSION', value: '1.00' },
+        { key: 'LICENSE', value: 'Library programs Copyright(C) Sony ComputerEntertainment Inc.' },
+        { key: 'PARENTAL_LEVEL', value: 1 },
+        { key: 'PSP_SYSTEM_VER', value: '3.71' },
+        { key: 'REGION', value: 0x8000 },
+        { key: 'TITLE', value: gameTitle },
+      ]);
+
+      const getAssetArr = async (type, baseVal) => {
+        if (customAssets[type]) return new Uint8Array(await customAssets[type].arrayBuffer());
+        return baseVal || new Uint8Array(0);
+      };
+
+      const icon0 = await getAssetArr('icon0', basePbpData.icon0);
+      const icon1 = await getAssetArr('icon1', basePbpData.icon1);
+      const pic0 = await getAssetArr('pic0', basePbpData.pic0);
+      const pic1 = await getAssetArr('pic1', basePbpData.pic1);
+      const snd0 = await getAssetArr('snd0', basePbpData.snd0);
+      const dataPsp = basePbpData.dataPsp;
+
+      const hdr = new Uint8Array(0x28);
+      let cur = 0x28;
+      writeUint32LE(hdr, 0, PBPMAGIC);
+      writeUint32LE(hdr, 4, 0x10000);
+      writeUint32LE(hdr, 8, cur); cur += sfo.length;
+      writeUint32LE(hdr, 12, cur); cur += icon0.length;
+      writeUint32LE(hdr, 16, cur); cur += icon1.length;
+      writeUint32LE(hdr, 20, cur); cur += pic0.length;
+      writeUint32LE(hdr, 24, cur); cur += pic1.length;
+      writeUint32LE(hdr, 28, cur); cur += snd0.length;
+      writeUint32LE(hdr, 32, cur); cur += dataPsp.length;
+
+      let psarOffset = cur;
+      if (psarOffset % 0x10000 !== 0) psarOffset += (0x10000 - (psarOffset % 0x10000));
+      writeUint32LE(hdr, 36, psarOffset);
+
+      const parts = [hdr, sfo, icon0, icon1, pic0, pic1, snd0, dataPsp];
+      const preDataSize = parts.reduce((s, p) => s + p.length, 0);
+      parts.push(new Uint8Array(psarOffset - preDataSize));
+
+      const allDiscParts = [];
+
+      for (let d = 0; d < discsData.length; d++) {
+        const { bin, toc } = discsData[d];
+        log(`Disc ${d + 1} 처리 중...`, '');
+
+        let isoSize = bin.length;
+        if (isoSize % BLOCK_SIZE !== 0) isoSize += (BLOCK_SIZE - (isoSize % BLOCK_SIZE));
+        const numBlocks = Math.ceil(isoSize / BLOCK_SIZE);
+
+        const data1 = buildData1(gameId, toc);
+        const data2 = buildData2(gameTitle);
+        const indexTable = new Uint8Array(numBlocks * 32);
+
+        const currentTotalSize = allDiscParts.reduce((s, p) => s + p.length, 0);
+        const alignTo1MB = (0x100000 - (currentTotalSize % 0x100000)) % 0x100000;
+        if (alignTo1MB > 0) allDiscParts.push(new Uint8Array(alignTo1MB));
+
+        const discStartPos = allDiscParts.reduce((s, p) => s + p.length, 0);
+
+        const psisoHeader = new Uint8Array(12);
+        psisoHeader.set(new TextEncoder().encode('PSISOIMG0000'));
+        const p1Bytes = new Uint8Array(4);
+        const p2Bytes = new Uint8Array(4);
+
+        const discHeaderPart = concatU8(
+          psisoHeader, p1Bytes, new Uint8Array(0x3EC),
+          data1, p2Bytes, data2
+        );
+
+        const isoDataRelOffset = 0x100000;
+        const indexTableRelOffset = discHeaderPart.length;
+        const tableToIsoPadSize = isoDataRelOffset - (indexTableRelOffset + indexTable.length);
+
+        allDiscParts.push(discHeaderPart);
+        allDiscParts.push(indexTable);
+        allDiscParts.push(new Uint8Array(tableToIsoPadSize));
+
+        const isoChunks = [];
+        const indexes = [];
+        let curIsoOff = 0;
+
+        for (let i = 0; i < numBlocks; i++) {
+          const start = i * BLOCK_SIZE;
+          let block = bin.slice(start, Math.min(start + BLOCK_SIZE, bin.length));
+          if (block.length < BLOCK_SIZE) {
+            const p = new Uint8Array(BLOCK_SIZE); p.set(block); block = p;
+          }
+
+          let outBlock = block;
+          let outLen = BLOCK_SIZE;
+          if (level > 0) {
+            const compressed = pako.deflateRaw(block, { level });
+            if (compressed.length < BLOCK_SIZE) {
+              outBlock = compressed; outLen = compressed.length;
+            }
+          }
+          isoChunks.push(outBlock);
+          indexes.push({ offset: curIsoOff, length: outLen });
+          curIsoOff += outLen;
+
+          if (i % 50 === 0) {
+            const prog = 5 + (d / discsData.length * 85) + (i / numBlocks * (85 / discsData.length));
+            onProgress(Math.round(prog), `Disc ${d + 1} 압축 중 (${i}/${numBlocks})`);
+            await new Promise(r => setTimeout(r, 0));
+          }
+        }
+        allDiscParts.push(...isoChunks);
+        const isoTotalSize = isoChunks.reduce((s, p) => s + p.length, 0);
+        const isoAlign = (16 - (isoTotalSize % 16)) % 16;
+        if (isoAlign > 0) allDiscParts.push(new Uint8Array(isoAlign));
+
+        discsData[d].meta = {
+          startPosInPsar: discStartPos,
+          numBlocks,
+          indexes,
+          isoTotalSize: isoTotalSize + isoAlign,
+          isoDataAbsOffset: discStartPos + 0x100000
+        };
+      }
+
+      if (basePbpData.startdat) {
+        const lastPos = allDiscParts.reduce((s, p) => s + p.length, 0);
+        const alignStartdat = (0x10000 - (lastPos % 0x10000)) % 0x10000;
+        if (alignStartdat > 0) allDiscParts.push(new Uint8Array(alignStartdat));
+        allDiscParts.push(basePbpData.startdat);
+      }
+
+      onProgress(92, '최종 조립 중...');
+      const psarData = concatU8(...allDiscParts);
+      const out = concatU8(...parts, psarData);
+
+      for (let d = 0; d < discsData.length; d++) {
+        const m = discsData[d].meta;
+        const absDiscStart = psarOffset + m.startPosInPsar;
+
+        let idxPos = absDiscStart + (12 + 4 + 0x3EC + DATA1_SIZE + 4 + DATA2_SIZE);
+        for (const idx of m.indexes) {
+          writeUint32LE(out, idxPos, idx.offset);
+          writeUint32LE(out, idxPos + 4, idx.length);
+          idxPos += 32;
+        }
+
+        const p1Val = m.isoTotalSize + 0x100000;
+        writeUint32LE(out, absDiscStart + 12, p1Val);
+        writeUint32LE(out, absDiscStart + 12 + 4 + 0x3EC + DATA1_SIZE, p1Val + 0x2d31);
+      }
+
+      onProgress(100, '모든 디스크 변환 완료!');
+      return out;
+    }
+
+    async function repackBasePbp(gameId, gameTitle, basePbpData, onProgress) {
+      const PBPMAGIC = 0x50425000;
+      onProgress(10, 'SFO 생성 중...');
+
+      const sfo = buildSFO([
+        { key: 'BOOTABLE', value: 1 },
+        { key: 'CATEGORY', value: 'ME' },
+        { key: 'DISC_ID', value: gameId },
+        { key: 'DISC_VERSION', value: '1.00' },
+        { key: 'LICENSE', value: 'Library programs Copyright(C) Sony ComputerEntertainment Inc.' },
+        { key: 'PARENTAL_LEVEL', value: 1 },
+        { key: 'PSP_SYSTEM_VER', value: '3.71' },
+        { key: 'REGION', value: 0x8000 },
+        { key: 'TITLE', value: gameTitle },
+      ]);
+
+      const getAssetArr = async (type, baseVal) => {
+        if (customAssets[type]) return new Uint8Array(await customAssets[type].arrayBuffer());
+        return baseVal || new Uint8Array(0);
+      };
+
+      const icon0 = await getAssetArr('icon0', basePbpData.icon0);
+      const icon1 = await getAssetArr('icon1', basePbpData.icon1);
+      const pic0 = await getAssetArr('pic0', basePbpData.pic0);
+      const pic1 = await getAssetArr('pic1', basePbpData.pic1);
+      const snd0 = await getAssetArr('snd0', basePbpData.snd0);
+      const dataPsp = basePbpData.dataPsp;
+
+      const hdr = new Uint8Array(0x28);
+      let cur = 0x28;
+      writeUint32LE(hdr, 0, PBPMAGIC);
+      writeUint32LE(hdr, 4, 0x10000);
+      writeUint32LE(hdr, 8, cur); cur += sfo.length;
+      writeUint32LE(hdr, 12, cur); cur += icon0.length;
+      writeUint32LE(hdr, 16, cur); cur += icon1.length;
+      writeUint32LE(hdr, 20, cur); cur += pic0.length;
+      writeUint32LE(hdr, 24, cur); cur += pic1.length;
+      writeUint32LE(hdr, 28, cur); cur += snd0.length;
+      writeUint32LE(hdr, 32, cur); cur += dataPsp.length;
+
+      let psarOffset = cur;
+      if (psarOffset % 0x10000 !== 0) psarOffset += (0x10000 - (psarOffset % 0x10000));
+      writeUint32LE(hdr, 36, psarOffset);
+
+      onProgress(50, '데이터 조립 중...');
+      const parts = [hdr, sfo, icon0, icon1, pic0, pic1, snd0, dataPsp];
+      const preDataSize = parts.reduce((s, p) => s + p.length, 0);
+      parts.push(new Uint8Array(psarOffset - preDataSize));
+
+      onProgress(90, '최종 PBP 생성 중...');
+      const out = concatU8(...parts, basePbpData.psar);
+      onProgress(100, '리팩 완료!');
+      return out;
+    }
+
+    async function startConvert() {
+      const anyDiscHasFile = discSlots.some(slot => slot.files.length > 0);
+      if (!anyDiscHasFile && !basePbpFile) return alert('게임 이미지 혹은 Base PBP 파일이 필요합니다.');
+      if (anyDiscHasFile && discSlots.some(s => !s.files.length)) return alert('모든 디스크 슬롯에 파일을 등록해주세요.');
+      if (!basePbpFile) return alert('Base PBP 파일이 필요합니다.');
+
+      const titleInput = document.getElementById('game-title').value.trim();
+      const idInput = document.getElementById('game-id').value.trim().toUpperCase();
+
+      let gameTitle = titleInput;
+      let gameId = idInput;
+
+      if (anyDiscHasFile) {
+        const firstCue = discSlots[0].files.find(f => f.name.toLowerCase().endsWith('.cue'));
+        if (!gameTitle) gameTitle = firstCue.name.replace(/\.cue$/i, '');
+      }
+      if (!gameId) gameId = 'SLUS-00000';
+
+      document.getElementById('convert-btn').disabled = true;
+      document.getElementById('progress-wrap').style.display = 'block';
+      document.getElementById('result-box').style.display = 'none';
+      document.getElementById('error-box').style.display = 'none';
+      logBox.innerHTML = '';
+
+      try {
+        const basePbpData = await readBasePbp(basePbpFile);
+        if (!gameTitle) gameTitle = basePbpFile.name.replace(/\.pbp$/i, '');
+
+        let pbpData;
+        if (anyDiscHasFile) {
+          // 신규 변환 모드
+          const discsData = [];
+          log(`전체 프로젝트: ${gameTitle} [${gameId}]`, 'ok');
+
+          for (let i = 0; i < discSlots.length; i++) {
+            const slot = discSlots[i];
+            const cueFile = slot.files.find(f => /\.cue$/i.test(f.name));
+            if (!cueFile) throw new Error(`Disc ${i + 1}: CUE 파일이 없습니다.`);
+
+            log(`Disc ${i + 1} 준비 중...`, '');
+            const cue = parseCue(await cueFile.text());
+            const { mergedBin, mergedTracks } = await mergeBins(cue, slot.files);
+            const toc = buildTOC({ fileEntries: [{ tracks: mergedTracks }] }, mergedBin.length);
+            discsData.push({ bin: mergedBin, toc });
+          }
+
+          pbpData = await buildMultiDiscPbp(
+            discsData, gameId, gameTitle, basePbpData,
+            (pct, label) => setProgress(pct, label)
+          );
+        } else {
+          // 리팩 모드 (Base PBP의 PSAR 재사용)
+          log(`리팩 모드: ${gameTitle} [${gameId}] 리소스 교체 중...`, 'ok');
+          pbpData = await repackBasePbp(gameId, gameTitle, basePbpData, (pct, label) => setProgress(pct, label));
+        }
+
+        resultBlob = new Blob([pbpData], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(resultBlob);
+        const outputName = gameTitle.replace(/[<>:"/\\|?*]/g, '_') + '.PBP';
+
+        document.getElementById('result-name').textContent = outputName;
+        document.getElementById('dl-btn').onclick = () => {
+          const a = document.createElement('a'); a.href = url; a.download = outputName; a.click();
+        };
+
+        document.getElementById('result-box').style.display = 'block';
+        document.getElementById('reset-btn').style.display = 'block';
+        document.getElementById('convert-btn').disabled = false;
+
+      } catch (err) {
+        console.error(err);
+        log('❌ ' + err.message, 'err');
+        document.getElementById('error-msg').textContent = err.message;
+        document.getElementById('error-box').style.display = 'block';
+        document.getElementById('reset-btn').style.display = 'block';
+        document.getElementById('convert-btn').disabled = false;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // 리셋
+    // ════════════════════════════════════════════════════════════
+    function resetAll() {
+      discSlots = [{ id: 0, files: [] }];
+      basePbpFile = null; resultBlob = null;
+      customAssets = { icon0: null, pic1: null, pic0: null, snd0: null, icon1: null };
+
+      document.getElementById('base-info').style.display = 'none';
+      document.getElementById('convert-btn').disabled = true;
+      document.getElementById('ready-status').innerText = '대기 중: 게임 이미지와 Base PBP를 등록해주세요.';
+      document.getElementById('ready-status').style.color = 'var(--muted)';
+
+      document.getElementById('reset-btn').style.display = 'none';
+      document.getElementById('progress-wrap').style.display = 'none';
+      document.getElementById('result-box').style.display = 'none';
+      document.getElementById('error-box').style.display = 'none';
+      document.getElementById('game-title').value = '';
+      document.getElementById('game-id').value = '';
+      logBox.innerHTML = '';
+      dzBase.classList.remove('has-files');
+      fiBase.value = '';
+
+      document.querySelectorAll('.asset-slot').forEach(s => {
+        s.classList.remove('has-file');
+        const img = s.querySelector('img');
+        if (img) img.src = '';
+        const prev = s.querySelector('.asset-preview:not(img)');
+        if (prev) prev.style.display = 'none';
+      });
+
+      renderDiscSlots();
+      setProgress(0, '');
+    }
+
+    // 초기 실행
+    renderDiscSlots();
+  </script>
+</body>
+
+</html>
