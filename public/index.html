@@ -1074,15 +1074,15 @@
     }
 
     let isExtracting = false;
+    let lastProcessedFile = null;
     async function tryAutoTitle() {
-      if (isExtracting) return;
       const firstDisc = discSlots[0];
       const firstFile = firstDisc.files.find(f => /\.(cue|bin|img|iso)$/i.test(f.name));
-      if (!firstFile) return;
+      if (!firstFile || isExtracting || firstFile === lastProcessedFile) return;
 
-      if (!document.getElementById('game-title').value) {
-        document.getElementById('game-title').value = firstFile.name.replace(/\.(cue|bin|img|iso)$/i, '');
-      }
+      lastProcessedFile = firstFile;
+      const newTitle = firstFile.name.replace(/\.(cue|bin|img|iso)$/i, '');
+      document.getElementById('game-title').value = newTitle;
 
       isExtracting = true;
       try {
@@ -1098,6 +1098,8 @@
             }
           }
         }
+      } catch (err) {
+        console.error('AutoTitle Error:', err);
       } finally {
         isExtracting = false;
       }
