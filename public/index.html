@@ -977,7 +977,7 @@
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
         <a id="lnk-psxdata" href="#" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🌐 PSX DataCenter</a>
-        <a id="lnk-unlucky" href="https://unluckyforsome.github.io/PSX1G1B1C1D/" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📀 UnluckyForSome</a>
+        <a id="lnk-unlucky" onclick="openUnluckyWithSearch(event)" href="#" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">📀 UnluckyForSome</a>
       </div>
       <div id="psx-preview"
         style="display:none; align-items:center; gap:15px; background:rgba(255,255,255,0.1); padding:12px; border-radius:8px; border: 1px dashed var(--accent2);">
@@ -1617,6 +1617,24 @@
         console.error(err);
         alert(`다운로드 실패: ${err.message}`);
       }
+    }
+
+    function openUnluckyWithSearch(e) {
+      e.preventDefault();
+      const title = document.getElementById('game-title').value.trim();
+      const firstWord = title ? title.split(/\s+/)[0] : '';
+
+      // 클립보드에 첫 단어 복사
+      if (firstWord) {
+        navigator.clipboard.writeText(firstWord).then(() => {
+          log(`'${firstWord}' 를(을) 클립보드에 복사했습니다. UnluckyForSome의 filter 필드에 붙여넣으세요.`, 'ok');
+        }).catch(err => {
+          console.error('클립보드 복사 실패:', err);
+        });
+      }
+
+      // UnluckyForSome 사이트 열기
+      window.open('https://unluckyforsome.github.io/PSX1G1B1C1D/', '_blank');
     }
 
     function handleGhDragStart(e) {
