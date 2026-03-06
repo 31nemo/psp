@@ -990,9 +990,6 @@
           <div style="color:var(--muted)">위 이미지를 <strong>드래그</strong>하여 아래 <br />[ICON0 / PIC1] 칸에 등록하세요.</div>
         </div>
       </div>
-      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-        <a id="lnk-unlucky-search" href="#" target="_blank" style="text-decoration:none; padding:8px 12px; font-size:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; color:var(--text); cursor:pointer; transition:all 0.15s; text-align:center;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🎨 UnluckyForSome에서 검색</a>
-      </div>
     </div>
 
     <!-- 변환 버튼 및 상태 안내 -->
@@ -1269,7 +1266,6 @@
         ? `https://unluckyforsome.github.io/PSX1G1B1C1D/?filter=${encodeURIComponent(firstWord)}`
         : `https://unluckyforsome.github.io/PSX1G1B1C1D/`;
       document.getElementById('lnk-unlucky').href = unluckyUrl;
-      document.getElementById('lnk-unlucky-search').href = unluckyUrl;
 
       // Guess Image Preview URL
       const thumb = document.getElementById('psx-thumb');
