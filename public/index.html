@@ -320,6 +320,11 @@
       transform: scale(1.02);
     }
 
+    /* 드래그 중 입력 필드 간섭 차단 */
+    body.is-dragging .asset-slot input {
+      pointer-events: none;
+    }
+
     /* ─ Compression ─ */
     .comp-row {
       display: flex;
@@ -1468,10 +1473,14 @@
       e.dataTransfer.setData('text/uri-list', url);
       e.dataTransfer.effectAllowed = 'copy';
 
-      // 드래그 고스트 이미지 설정 (선택 사항)
-      const ghost = new Image();
-      ghost.src = url;
-      e.dataTransfer.setDragImage(e.target, 20, 20);
+      document.body.classList.add('is-dragging');
+
+      // 드래그 종료 시 클래스 제거
+      const cleanup = () => {
+        document.body.classList.remove('is-dragging');
+        e.target.removeEventListener('dragend', cleanup);
+      };
+      e.target.addEventListener('dragend', cleanup);
     }
 
     function setupAssetDropZones() {
@@ -1479,32 +1488,47 @@
       slots.forEach(slot => {
         const type = slot.id.replace('as-', '');
 
-        // 기존 드래그오버 중복 방지
-        slot.removeEventListener('dragover', null);
+        slot.addEventListener('dragenter', (e) => {
+          e.preventDefault();
+          slot.classList.add('drag-over');
+        });
 
         slot.addEventListener('dragover', (e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'copy';
-          slot.classList.add('drag-over');
+          if (!slot.classList.contains('drag-over')) {
+            slot.classList.add('drag-over');
+          }
         });
 
         slot.addEventListener('dragleave', (e) => {
-          if (!slot.contains(e.relatedTarget)) {
-            slot.classList.remove('drag-over');
-          }
+          // 자식 요소로 이동할 때 발생하는 리브 이벤트 무시
+          if (e.relatedTarget && slot.contains(e.relatedTarget)) return;
+          slot.classList.remove('drag-over');
         });
 
         slot.addEventListener('drop', async (e) => {
           e.preventDefault();
           slot.classList.remove('drag-over');
+          document.body.classList.remove('is-dragging');
 
           let url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || draggedImageUrl;
+
+          // dataTransfer에서 URL 추출 시도 (주로 크롬/엣지)
+          if (!url && e.dataTransfer.items) {
+            for (let i = 0; i < e.dataTransfer.items.length; i++) {
+              if (e.dataTransfer.items[i].kind === 'string' && e.dataTransfer.items[i].type === 'text/plain') {
+                url = await new Promise(resolve => e.dataTransfer.items[i].getAsString(resolve));
+                break;
+              }
+            }
+          }
 
           if (url && url.startsWith('http')) {
             try {
               log(`이미지 연동 중: ${type}...`, '');
               const response = await fetch(url);
-              if (!response.ok) throw new Error('Network response was not ok');
+              if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
               const blob = await response.blob();
               const filename = url.split('/').pop().split('?')[0] || `${type}.png`;
               const file = new File([blob], filename, { type: blob.type });
@@ -1513,9 +1537,9 @@
             } catch (err) {
               console.error(err);
               log(`❌ 이미지 적용 실패: ${err.message}`, 'err');
-              alert(`이미지 적용 실패: ${err.message}\n직접 저장 후 업로드해주세요.`);
+              alert(`이미지 적용 실패: ${err.message}\n네트워크 문제일 수 있습니다. 이미지를 직접 저장하여 업로드해주세요.`);
             } finally {
-              draggedImageUrl = null; // 초기화
+              draggedImageUrl = null;
             }
           }
         });
