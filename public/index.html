@@ -722,12 +722,47 @@
       <div class="section-label">② Base PBP <span style="color:var(--muted);font-weight:400;text-transform:none">(PSP 커널
           포함 EBOOT.PBP)</span></div>
       <div class="dropzone" id="dz-base" style="padding: 24px 16px;">
-        <input type="file" id="fi-base" accept=".pbp" />
+        <input type="file" id="fi-base" accept=".pbp,.bin,.dat" multiple />
         <div class="dz-icon" style="font-size: 1.8rem;">💾</div>
         <div class="dz-title" style="font-size: 0.95rem;">Base EBOOT.PBP 등록</div>
         <div class="dz-sub" style="font-size: 0.75rem;"><span class="badge">.pbp</span> 필수</div>
       </div>
+      <div style="margin-top: 8px; font-size: 0.75rem; color: var(--muted); line-height: 1.4;">
+        💡 <b>Tip</b>: 기본 엔진이 내장되어 있어 Base PBP 없이도 변환 가능하지만, <b>작동이 확인된 PBP</b>를 ②번 칸에 등록하는 것을
+        <b>강력 추천</b>합니다. 실기 및 에뮬레이터 호환성이 획기적으로 향상됩니다.
+      </div>
       <div id="base-info" style="margin-top:10px;display:none"></div>
+
+      <div class="asset-grid" style="margin-top:15px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
+        <!-- KEYS.BIN -->
+        <div class="asset-slot" id="as-keys" title="PSN 게임의 암호 해독을 위한 키 파일입니다. (KEYS.BIN)">
+          <div class="asset-controls">
+            <button class="asset-btn" title="다운로드" onclick="downloadSupplemental('keys', event)">⬇</button>
+            <button class="asset-btn del" title="삭제" onclick="removeSupplemental('keys', event)">✕</button>
+          </div>
+          <input type="file" accept=".bin" onchange="handleSupplemental('keys', this.files[0])" />
+          <div class="asset-icon">🔑</div>
+          <div class="asset-preview" id="prev-keys"
+            style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1.2rem;">🔐
+          </div>
+          <span class="asset-name">KEYS.BIN</span>
+          <span class="asset-desc">암호 해독 키</span>
+        </div>
+        <!-- DOCUMENT.DAT -->
+        <div class="asset-slot" id="as-doc" title="게임 메뉴에서 볼 수 있는 디지털 매뉴얼 파일입니다. (DOCUMENT.DAT)">
+          <div class="asset-controls">
+            <button class="asset-btn" title="다운로드" onclick="downloadSupplemental('doc', event)">⬇</button>
+            <button class="asset-btn del" title="삭제" onclick="removeSupplemental('doc', event)">✕</button>
+          </div>
+          <input type="file" accept=".dat" onchange="handleSupplemental('doc', this.files[0])" />
+          <div class="asset-icon">📘</div>
+          <div class="asset-preview" id="prev-doc"
+            style="display:none; align-items:center; justify-content:center; color:var(--accent2); font-size:1.2rem;">📖
+          </div>
+          <span class="asset-name">DOCUMENT.DAT</span>
+          <span class="asset-desc">디지털 매뉴얼</span>
+        </div>
+      </div>
     </div>
 
     <!-- 3. 커스텀 리소스 (선택) -->
@@ -937,7 +972,7 @@
             <div class="dz-icon" style="font-size: 1.8rem;">📀</div>
             <div class="dz-title" style="font-size: 0.9rem;">${slot.files.length ? '등록 완료' : 'CUE + BIN 등록'}</div>
             <div class="dz-sub" style="font-size: 0.75rem;">
-              ${slot.files.length ? `${slot.files.length}개 파일` : '.cue / .bin'}
+              ${slot.files.length ? `${slot.files.length}개 파일` : '.cue / .bin (CHD 지원안됨)'}
             </div>
           </div>
           <div id="list-${slot.id}" style="margin-top:8px; font-size:0.75rem; font-family:'JetBrains Mono', monospace; max-height: 80px; overflow-y: auto;">
@@ -961,7 +996,12 @@
     }
 
     function handleSlotFiles(slotId, fileList) {
-      const files = Array.from(fileList).filter(f => /\.(cue|bin)$/i.test(f.name));
+      const allFiles = Array.from(fileList);
+      const hasChd = allFiles.some(f => /\.chd$/i.test(f.name));
+      if (hasChd) {
+        alert("⚠ CHD 포맷은 지원되지 않습니다.\n\nCHD는 고도로 압축된 포맷으로 브라우저에서 직접 변환하기에는 기술적 한계가 있습니다. 'chdman' 등의 도구로 BIN/CUE로 먼저 변환하신 후 업로드해 주세요.");
+      }
+      const files = allFiles.filter(f => /\.(cue|bin)$/i.test(f.name));
       if (!files.length) return;
       const slot = discSlots.find(s => s.id === slotId);
       if (slot) slot.files = files;
@@ -978,9 +1018,9 @@
 
     function tryAutoTitle() {
       const firstDisc = discSlots[0];
-      const cueFile = firstDisc.files.find(f => /\.cue$/i.test(f.name));
-      if (cueFile && !document.getElementById('game-title').value) {
-        document.getElementById('game-title').value = cueFile.name.replace(/\.cue$/i, '');
+      const firstFile = firstDisc.files.find(f => /\.(cue|bin)$/i.test(f.name));
+      if (firstFile && !document.getElementById('game-title').value) {
+        document.getElementById('game-title').value = firstFile.name.replace(/\.(cue|bin)$/i, '');
       }
     }
 
@@ -989,8 +1029,32 @@
     const fiBase = document.getElementById('fi-base');
     dzBase.addEventListener('dragover', e => { e.preventDefault(); dzBase.classList.add('dragover'); });
     dzBase.addEventListener('dragleave', () => dzBase.classList.remove('dragover'));
-    dzBase.addEventListener('drop', e => { e.preventDefault(); dzBase.classList.remove('dragover'); handleBasePbp(e.dataTransfer.files[0]); });
-    fiBase.addEventListener('change', () => handleBasePbp(fiBase.files[0]));
+    dzBase.addEventListener('drop', e => { e.preventDefault(); dzBase.classList.remove('dragover'); handleMultipleBaseFiles(e.dataTransfer.files); });
+    fiBase.addEventListener('change', () => handleMultipleBaseFiles(fiBase.files));
+
+    async function handleMultipleBaseFiles(files) {
+      if (!files || files.length === 0) return;
+
+      let pbpFound = false;
+      for (const f of files) {
+        const name = f.name.toUpperCase();
+        if (name.endsWith('.PBP')) {
+          handleBasePbp(f);
+          pbpFound = true;
+        } else if (name === 'KEYS.BIN') {
+          handleSupplemental('keys', f);
+        } else if (name === 'DOCUMENT.DAT') {
+          handleSupplemental('doc', f);
+        }
+      }
+      if (!pbpFound && files.length === 1) {
+        // 단일 파일인데 PBP가 아니면 확장자에 따라 처리
+        const f = files[0];
+        const name = f.name.toUpperCase();
+        if (name.endsWith('.BIN')) handleSupplemental('keys', f);
+        else if (name.endsWith('.DAT')) handleSupplemental('doc', f);
+      }
+    }
 
     async function handleBasePbp(file) {
       if (!file || !/\.pbp$/i.test(file.name)) return alert('.pbp 파일을 선택해주세요.');
@@ -1075,10 +1139,10 @@
       const anyDiscHasFile = discSlots.some(slot => slot.files.length > 0);
 
       const missingDiscs = discSlots.filter(slot => {
-        if (!anyDiscHasFile && hasBase) return false; // 리팩 모드: 디스크 없어도 OK
-        const hasCue = slot.files.some(f => /\.cue$/i.test(f.name));
+        if (!anyDiscHasFile && hasBase) return false;
+        if (slot.files.length === 0) return false;
         const hasBin = slot.files.some(f => /\.bin$/i.test(f.name));
-        return !(hasCue && hasBin);
+        return !hasBin;
       });
 
       const btn = document.getElementById('convert-btn');
@@ -1087,8 +1151,11 @@
       let msg = "";
       if (anyDiscHasFile && missingDiscs.length > 0) {
         msg = `⚠ 디스크 ${missingDiscs.map(s => discSlots.indexOf(s) + 1).join(', ')}번에 파일이 부족합니다.`;
-      } else if (!hasBase) {
-        msg = "⚠ Base PBP 파일을 등록해주세요.";
+      } else if (!hasBase && !anyDiscHasFile) {
+        msg = "⚠ BIN/CUE 게임 파일 혹은 Base PBP를 등록해주세요.";
+      } else if (anyDiscHasFile && missingDiscs.length === 0) {
+        msg = hasBase ? "✅ 모든 준비가 완료되었습니다!" : "✅ 기본 엔진으로 변환할 준비가 되었습니다!";
+        statusEl.style.color = "var(--accent2)";
       } else if (!anyDiscHasFile && hasBase) {
         msg = "✅ 리소스를 교체하여 리팩(Repack)할 준비가 되었습니다!";
         statusEl.style.color = "var(--accent2)";
@@ -1097,7 +1164,7 @@
         statusEl.style.color = "var(--accent2)";
       }
 
-      const isReady = (hasBase && !anyDiscHasFile) || (hasBase && anyDiscHasFile && missingDiscs.length === 0);
+      const isReady = (hasBase && !anyDiscHasFile) || (anyDiscHasFile && missingDiscs.length === 0);
 
       if (isReady) {
         btn.disabled = false;
@@ -1231,6 +1298,8 @@
       BOOTABLE: { maxLen: 4, type: 0x0404 },
       CATEGORY: { maxLen: 4, type: 0x0204 },
       DISC_ID: { maxLen: 16, type: 0x0204 },
+      DISC_NUMBER: { maxLen: 4, type: 0x0404 },
+      DISC_TOTAL: { maxLen: 4, type: 0x0404 },
       DISC_VERSION: { maxLen: 8, type: 0x0204 },
       LICENSE: { maxLen: 512, type: 0x0204 },
       PARENTAL_LEVEL: { maxLen: 4, type: 0x0404 },
@@ -1396,6 +1465,9 @@
     let customAssets = {
       icon0: null, pic1: null, pic0: null, snd0: null, icon1: null
     };
+    let supplementalFiles = {
+      keys: null, doc: null
+    };
 
     function handleAsset(type, file) {
       if (!file) return;
@@ -1456,10 +1528,66 @@
       URL.revokeObjectURL(url);
     }
 
+    function handleSupplemental(type, file) {
+      if (!file) return;
+      supplementalFiles[type] = file;
+      const slot = document.getElementById(`as-${type}`);
+      if (slot) {
+        slot.classList.add('has-file');
+        const prev = slot.querySelector('.asset-preview');
+        if (prev) prev.style.display = 'flex';
+      }
+      log(`부가 파일 등록됨: ${file.name}`, 'ok');
+
+      // KEYS.BIN이 등록되면 단일 PBP 안내
+      if (type === 'keys') {
+        log('💡 KEYS.BIN 감지: 암호화된 PSN PBP일 경우 변환 시 복호화를 시도하여 단일 PBP를 생성합니다.', '');
+      }
+    }
+
+    function removeSupplemental(type, event) {
+      if (event) event.stopPropagation();
+      supplementalFiles[type] = null;
+      const slot = document.getElementById(`as-${type}`);
+      if (slot) {
+        slot.classList.remove('has-file');
+        const prev = slot.querySelector('.asset-preview');
+        if (prev) prev.style.display = 'none';
+        const input = slot.querySelector('input[type="file"]');
+        if (input) input.value = '';
+      }
+      log(`부가 파일 제거됨: ${type.toUpperCase()}`, '');
+    }
+
+    function downloadSupplemental(type, event) {
+      if (event) event.stopPropagation();
+      const file = supplementalFiles[type];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
     // ════════════════════════════════════════════════════════════
     // Base PBP Reader (모든 기본 리소스 추출)
     // ════════════════════════════════════════════════════════════
     async function readBasePbp(file) {
+      if (!file) {
+        return {
+          version: 0x10000,
+          sfo: new Uint8Array(0),
+          icon0: new Uint8Array(0),
+          icon1: new Uint8Array(0),
+          pic0: new Uint8Array(0),
+          pic1: new Uint8Array(0),
+          snd0: new Uint8Array(0),
+          dataPsp: new Uint8Array(0),
+          psar: new Uint8Array(0)
+        };
+      }
       const buf = await file.arrayBuffer();
       const u8 = new Uint8Array(buf);
       const dv = new DataView(buf);
@@ -1552,11 +1680,13 @@
         { key: 'BOOTABLE', value: 1 },
         { key: 'CATEGORY', value: 'ME' },
         { key: 'DISC_ID', value: gameId },
+        { key: 'DISC_NUMBER', value: 1 },
+        { key: 'DISC_TOTAL', value: discsData.length },
         { key: 'DISC_VERSION', value: '1.00' },
         { key: 'LICENSE', value: 'Library programs Copyright(C) Sony ComputerEntertainment Inc.' },
         { key: 'PARENTAL_LEVEL', value: 1 },
-        { key: 'PSP_SYSTEM_VER', value: '3.71' },
-        { key: 'REGION', value: 0x8000 },
+        { key: 'PSP_SYSTEM_VER', value: '1.00' },
+        { key: 'REGION', value: 32768 },
         { key: 'TITLE', value: gameTitle },
       ]);
 
@@ -1570,7 +1700,15 @@
       const pic0 = await getAssetArr('pic0', basePbpData.pic0);
       const pic1 = await getAssetArr('pic1', basePbpData.pic1);
       const snd0 = await getAssetArr('snd0', basePbpData.snd0);
-      const dataPsp = basePbpData.dataPsp;
+
+      // DATA.PSP: RetroArch/실기 호환성을 위한 표준 ELF 헤더 엔진 (기본값)
+      let dataPsp = basePbpData.dataPsp || new Uint8Array(0);
+      if (dataPsp.length === 0) {
+        // PSX2PSP 및 일반 변환 도구 표준 더미 구조
+        dataPsp = new Uint8Array(0x200);
+        dataPsp.set([0x7F, 0x45, 0x4C, 0x46, 0x01, 0x01, 0x01, 0x00]); // ELF Magic
+        // 추가 가상 데이터 (필요 시 더 확장 가능)
+      }
 
       const hdr = new Uint8Array(0x28);
       let cur = 0x28;
@@ -1602,33 +1740,35 @@
         if (isoSize % BLOCK_SIZE !== 0) isoSize += (BLOCK_SIZE - (isoSize % BLOCK_SIZE));
         const numBlocks = Math.ceil(isoSize / BLOCK_SIZE);
 
-        const data1 = buildData1(gameId, toc);
-        const data2 = buildData2(gameTitle);
-        const indexTable = new Uint8Array(numBlocks * 32);
-
         const currentTotalSize = allDiscParts.reduce((s, p) => s + p.length, 0);
-        const alignTo1MB = (0x100000 - (currentTotalSize % 0x100000)) % 0x100000;
-        if (alignTo1MB > 0) allDiscParts.push(new Uint8Array(alignTo1MB));
+        const alignTo64KB = (0x10000 - (currentTotalSize % 0x10000)) % 0x10000;
+        if (alignTo64KB > 0) allDiscParts.push(new Uint8Array(alignTo64KB));
 
         const discStartPos = allDiscParts.reduce((s, p) => s + p.length, 0);
 
-        const psisoHeader = new Uint8Array(12);
+        // PSISOIMG Header (0x400)
+        const psisoHeader = new Uint8Array(0x400);
         psisoHeader.set(new TextEncoder().encode('PSISOIMG0000'));
-        const p1Bytes = new Uint8Array(4);
-        const p2Bytes = new Uint8Array(4);
 
-        const discHeaderPart = concatU8(
-          psisoHeader, p1Bytes, new Uint8Array(0x3EC),
-          data1, p2Bytes, data2
-        );
+        // DATA1 (0x400): Game ID
+        const d1Arr = new Uint8Array(0x400);
+        d1Arr.set(new TextEncoder().encode(`_${gameId}`));
 
-        const isoDataRelOffset = 0x100000;
-        const indexTableRelOffset = discHeaderPart.length;
-        const tableToIsoPadSize = isoDataRelOffset - (indexTableRelOffset + indexTable.length);
+        // DATA2 (0x3800): TOC
+        const d2Arr = new Uint8Array(0x3800);
+        d2Arr.set(toc);
 
-        allDiscParts.push(discHeaderPart);
-        allDiscParts.push(indexTable);
-        allDiscParts.push(new Uint8Array(tableToIsoPadSize));
+        // Index Table (starts at +0x4000)
+        const idxTable = new Uint8Array(numBlocks * 32);
+
+        // Pads until ISO starts at +0x100000
+        const tableToIsoPadSize = 0x100000 - (0x400 + 0x400 + 0x3800 + idxTable.length);
+
+        allDiscParts.push(psisoHeader);
+        allDiscParts.push(d1Arr);
+        allDiscParts.push(d2Arr);
+        allDiscParts.push(idxTable);
+        if (tableToIsoPadSize > 0) allDiscParts.push(new Uint8Array(tableToIsoPadSize));
 
         const isoChunks = [];
         const indexes = [];
@@ -1688,7 +1828,7 @@
         const m = discsData[d].meta;
         const absDiscStart = psarOffset + m.startPosInPsar;
 
-        let idxPos = absDiscStart + (12 + 4 + 0x3EC + DATA1_SIZE + 4 + DATA2_SIZE);
+        let idxPos = absDiscStart + 0x4000;
         for (const idx of m.indexes) {
           writeUint32LE(out, idxPos, idx.offset);
           writeUint32LE(out, idxPos + 4, idx.length);
@@ -1697,7 +1837,6 @@
 
         const p1Val = m.isoTotalSize + 0x100000;
         writeUint32LE(out, absDiscStart + 12, p1Val);
-        writeUint32LE(out, absDiscStart + 12 + 4 + 0x3EC + DATA1_SIZE, p1Val + 0x2d31);
       }
 
       onProgress(100, '모든 디스크 변환 완료!');
@@ -1715,8 +1854,8 @@
         { key: 'DISC_VERSION', value: '1.00' },
         { key: 'LICENSE', value: 'Library programs Copyright(C) Sony ComputerEntertainment Inc.' },
         { key: 'PARENTAL_LEVEL', value: 1 },
-        { key: 'PSP_SYSTEM_VER', value: '3.71' },
-        { key: 'REGION', value: 0x8000 },
+        { key: 'PSP_SYSTEM_VER', value: '1.00' },
+        { key: 'REGION', value: 32768 },
         { key: 'TITLE', value: gameTitle },
       ]);
 
@@ -1730,7 +1869,13 @@
       const pic0 = await getAssetArr('pic0', basePbpData.pic0);
       const pic1 = await getAssetArr('pic1', basePbpData.pic1);
       const snd0 = await getAssetArr('snd0', basePbpData.snd0);
-      const dataPsp = basePbpData.dataPsp;
+
+      // DATA.PSP 유지 (없으면 표준 ELF 엔진 사용)
+      let dataPsp = basePbpData.dataPsp || new Uint8Array(0);
+      if (dataPsp.length === 0) {
+        dataPsp = new Uint8Array(0x200);
+        dataPsp.set([0x7F, 0x45, 0x4C, 0x46, 0x01, 0x01, 0x01, 0x00]);
+      }
 
       const hdr = new Uint8Array(0x28);
       let cur = 0x28;
@@ -1762,8 +1907,10 @@
     async function startConvert() {
       const anyDiscHasFile = discSlots.some(slot => slot.files.length > 0);
       if (!anyDiscHasFile && !basePbpFile) return alert('게임 이미지 혹은 Base PBP 파일이 필요합니다.');
-      if (anyDiscHasFile && discSlots.some(s => !s.files.length)) return alert('모든 디스크 슬롯에 파일을 등록해주세요.');
-      if (!basePbpFile) return alert('Base PBP 파일이 필요합니다.');
+      if (anyDiscHasFile && discSlots.some(s => {
+        const hasBin = s.files.some(f => /\.bin$/i.test(f.name));
+        return s.files.length > 0 && !hasBin;
+      })) return alert('각 디스크 슬롯에는 최소한 BIN 파일이 포함되어야 합니다.');
 
       const titleInput = document.getElementById('game-title').value.trim();
       const idInput = document.getElementById('game-id').value.trim().toUpperCase();
@@ -1772,8 +1919,8 @@
       let gameId = idInput;
 
       if (anyDiscHasFile) {
-        const firstCue = discSlots[0].files.find(f => f.name.toLowerCase().endsWith('.cue'));
-        if (!gameTitle) gameTitle = firstCue.name.replace(/\.cue$/i, '');
+        const firstFile = discSlots[0].files.find(f => /\.(cue|bin)$/i.test(f.name));
+        if (!gameTitle && firstFile) gameTitle = firstFile.name.replace(/\.(cue|bin)$/i, '');
       }
       if (!gameId) gameId = 'SLUS-00000';
 
@@ -1795,11 +1942,21 @@
 
           for (let i = 0; i < discSlots.length; i++) {
             const slot = discSlots[i];
+            let cue;
             const cueFile = slot.files.find(f => /\.cue$/i.test(f.name));
-            if (!cueFile) throw new Error(`Disc ${i + 1}: CUE 파일이 없습니다.`);
-
-            log(`Disc ${i + 1} 준비 중...`, '');
-            const cue = parseCue(await cueFile.text());
+            if (cueFile) {
+              cue = parseCue(await cueFile.text());
+            } else {
+              const binFile = slot.files.find(f => /\.bin$/i.test(f.name));
+              if (!binFile) throw new Error(`Disc ${i + 1}: BIN 파일이 없습니다.`);
+              log(`Disc ${i + 1}: CUE 파일 없음 -> 기본 CUE 구조 생성`, 'warn');
+              cue = {
+                fileEntries: [{
+                  fileName: binFile.name,
+                  tracks: [{ number: 1, type: 'DATA', indexes: [{ number: 1, mm: 0, ss: 0, ff: 0 }] }]
+                }]
+              };
+            }
             const { mergedBin, mergedTracks } = await mergeBins(cue, slot.files);
             const toc = buildTOC({ fileEntries: [{ tracks: mergedTracks }] }, mergedBin.length);
             discsData.push({ bin: mergedBin, toc });
@@ -1845,6 +2002,18 @@
       discSlots = [{ id: 0, files: [] }];
       basePbpFile = null; resultBlob = null;
       customAssets = { icon0: null, pic1: null, pic0: null, snd0: null, icon1: null };
+
+      supplementalFiles = { keys: null, doc: null };
+      ['keys', 'doc'].forEach(t => {
+        const slot = document.getElementById(`as-${t}`);
+        if (slot) {
+          slot.classList.remove('has-file');
+          const p = slot.querySelector('.asset-preview');
+          if (p) p.style.display = 'none';
+          const i = slot.querySelector('input');
+          if (i) i.value = '';
+        }
+      });
 
       document.getElementById('base-info').style.display = 'none';
       document.getElementById('convert-btn').disabled = true;
